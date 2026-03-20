@@ -590,13 +590,14 @@ export function defineTools(deps: ToolDeps) {
       }),
       annotations: { readOnly: false },
       async execute(input: any) {
+        if (!ctx.agentId) throw new Error("Agent identity required to store memories");
         const id = crypto.randomUUID();
         const ttlSeconds = input.ttl_days ? input.ttl_days * 86400 : null;
 
         await db.insert(agentMemories).values({
           id,
           tenantId: ctx.tenantId,
-          agentId: ctx.agentId!,
+          agentId: ctx.agentId,
           subjectType: input.related_entity_type,
           subjectId: input.related_entity_id,
           content: input.content,

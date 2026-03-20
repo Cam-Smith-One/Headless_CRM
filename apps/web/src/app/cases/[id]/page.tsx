@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiPatch, apiDelete } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
 
 const statusColors: Record<string, string> = {
@@ -25,14 +27,18 @@ const priorityColors: Record<string, string> = {
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { token } = useAuth();
   const [cas, setCas] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      apiFetch<any>(`/api/cases/${id}`).catch(() => null),
-      apiFetch<any>("/api/events").then((res) => {
+      apiFetch<any>(`/api/cases/${id}`, { token }).catch(() => null),
+      apiFetch<any>("/api/events", { token }).then((res) => {
         const items = Array.isArray(res) ? res : res?.data ?? [];
         return items.filter((e: any) => e.recordId === id);
       }).catch(() => []),
@@ -40,7 +46,35 @@ export default function CaseDetailPage() {
       setCas(c);
       setEvents(ev);
     }).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, token]);
+
+  function startEditing() {
+    setEditForm({
+      title: cas.title || "",
+      status: cas.status || "open",
+      priority: cas.priority || "medium",
+      category: cas.category || "",
+      description: cas.description || "",
+    });
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const updated = await apiPatch(`/api/cases/${id}`, editForm, token);
+      setCas(updated);
+      setEditing(false);
+    } catch { /* handle error */ } finally { setSaving(false); }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Delete this case?")) return;
+    try {
+      await apiDelete(`/api/cases/${id}`, token);
+      router.push("/cases");
+    } catch { /* handle error */ }
+  }
 
   if (loading) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading...</div>;
   if (!cas) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Case not found</div>;
@@ -48,47 +82,93 @@ export default function CaseDetailPage() {
   return (
     <div className="p-6 max-w-[1000px]">
       <button onClick={() => router.push("/cases")} className="text-xs text-muted-foreground hover:text-foreground mb-4 flex items-center gap-1">
-        ← Back to Cases
+        &larr; Back to Cases
       </button>
 
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">{cas.title}</h1>
-        <div className="flex items-center gap-2 mt-1">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[cas.status] || ""}`}>
-            {cas.status}
-          </span>
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[cas.priority] || ""}`}>
-            {cas.priority}
-          </span>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold">{cas.title}</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[cas.status] || ""}`}>
+              {cas.status}
+            </span>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[cas.priority] || ""}`}>
+              {cas.priority}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground font-mono mt-1">{cas.id}</p>
         </div>
-        <p className="text-xs text-muted-foreground font-mono mt-1">{cas.id}</p>
+        <div className="flex gap-2">
+          {!editing && (
+            <>
+              <Button size="sm" variant="outline" onClick={startEditing}>Edit</Button>
+              <Button size="sm" variant="destructive" onClick={handleDelete}>Delete</Button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <Card className="bg-card/50">
-          <CardContent className="p-4 space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Case Info</h3>
-            <Field label="Status" value={cas.status} badge />
-            <Field label="Priority" value={cas.priority} badge />
-            <Field label="Category" value={cas.category} />
-            <Field label="Contact" value={cas.contactId} mono />
-            <Field label="Company" value={cas.companyId} mono />
-            <Field label="Deal" value={cas.dealId} mono />
+      {editing ? (
+        <Card className="mb-6">
+          <CardContent className="p-4 space-y-3">
+            <h3 className="text-xs font-medium text-muted-foreground">Edit Case</h3>
+            <div>
+              <label className="text-xs text-muted-foreground">Title</label>
+              <input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm" value={editForm.title || ""} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Status</label>
+              <select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                {["open", "in_progress", "waiting", "resolved", "closed"].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Priority</label>
+              <select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs" value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}>
+                {["low", "medium", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Category</label>
+              <input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm" value={editForm.category || ""} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Description</label>
+              <textarea className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm min-h-[80px]" value={editForm.description || ""} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+            </div>
           </CardContent>
         </Card>
-        <Card className="bg-card/50">
-          <CardContent className="p-4 space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Metadata</h3>
-            <Field label="Assigned Agent" value={cas.assignedAgentId} mono />
-            <Field label="Resolved At" value={cas.resolvedAt ? new Date(cas.resolvedAt).toLocaleString() : "—"} />
-            <Field label="Created" value={cas.createdAt ? new Date(cas.createdAt).toLocaleString() : "—"} />
-            <Field label="Updated" value={cas.updatedAt ? new Date(cas.updatedAt).toLocaleString() : "—"} />
-            <Field label="Created By" value={cas.createdByAgentId} mono />
-          </CardContent>
-        </Card>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <Card className="bg-card/50">
+            <CardContent className="p-4 space-y-2">
+              <h3 className="text-xs font-medium text-muted-foreground">Case Info</h3>
+              <Field label="Status" value={cas.status} badge />
+              <Field label="Priority" value={cas.priority} badge />
+              <Field label="Category" value={cas.category} />
+              <Field label="Contact" value={cas.contactId} mono />
+              <Field label="Company" value={cas.companyId} mono />
+              <Field label="Deal" value={cas.dealId} mono />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50">
+            <CardContent className="p-4 space-y-2">
+              <h3 className="text-xs font-medium text-muted-foreground">Metadata</h3>
+              <Field label="Assigned Agent" value={cas.assignedAgentId} mono />
+              <Field label="Resolved At" value={cas.resolvedAt ? new Date(cas.resolvedAt).toLocaleString() : "\u2014"} />
+              <Field label="Created" value={cas.createdAt ? new Date(cas.createdAt).toLocaleString() : "\u2014"} />
+              <Field label="Updated" value={cas.updatedAt ? new Date(cas.updatedAt).toLocaleString() : "\u2014"} />
+              <Field label="Created By" value={cas.createdByAgentId} mono />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {cas.description && (
+      {cas.description && !editing && (
         <div className="mb-6">
           <h2 className="text-sm font-medium mb-2">Description</h2>
           <div className="border border-border rounded-lg p-4 text-[13px] text-muted-foreground whitespace-pre-wrap">
@@ -120,7 +200,7 @@ export default function CaseDetailPage() {
 }
 
 function Field({ label, value, mono, badge }: { label: string; value?: string | null; mono?: boolean; badge?: boolean }) {
-  const display = value || "—";
+  const display = value || "\u2014";
   return (
     <div className="flex items-center justify-between text-[13px]">
       <span className="text-muted-foreground">{label}</span>

@@ -21,13 +21,23 @@ export default function ContactsPage() {
   const router = useRouter();
   const { token } = useAuth();
   const [contacts, setContacts] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", title: "", companyId: "" });
+  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", phone: "", title: "", companyId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const isFirst = useRef(true);
+
+  // Build a company lookup map for displaying names
+  const companyMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of companies) {
+      map[c.id] = c.name;
+    }
+    return map;
+  }, [companies]);
 
   function fetchContacts() {
     apiFetch<any>("/api/contacts", { token })
@@ -39,10 +49,20 @@ export default function ContactsPage() {
       .finally(() => { if (isFirst.current) { setLoading(false); isFirst.current = false; } });
   }
 
+  function fetchCompanies() {
+    apiFetch<any>("/api/companies", { token })
+      .then((res) => {
+        const data = Array.isArray(res) ? res : res?.data;
+        if (data) setCompanies(data);
+      })
+      .catch(() => {});
+  }
+
   useEffect(() => {
     isFirst.current = true;
     setLoading(true);
     fetchContacts();
+    fetchCompanies();
     const id = setInterval(fetchContacts, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [token]);
@@ -51,19 +71,28 @@ export default function ContactsPage() {
     if (!search.trim()) return contacts;
     const q = search.toLowerCase();
     return contacts.filter((c) =>
-      [c.firstName, c.lastName, c.email, c.title, c.company, c.id]
+      [c.firstName, c.lastName, c.email, c.title, companyMap[c.companyId], c.id]
         .filter(Boolean)
         .some((f) => String(f).toLowerCase().includes(q))
     );
-  }, [contacts, search]);
+  }, [contacts, search, companyMap]);
 
   async function handleCreate() {
     setSubmitting(true);
     setError("");
     try {
-      await apiPost("/api/contacts", formData, token);
+      // Only send non-empty fields
+      const payload: Record<string, string> = {};
+      if (formData.firstName) payload.firstName = formData.firstName;
+      if (formData.lastName) payload.lastName = formData.lastName;
+      if (formData.email) payload.email = formData.email;
+      if (formData.phone) payload.phone = formData.phone;
+      if (formData.title) payload.title = formData.title;
+      if (formData.companyId) payload.companyId = formData.companyId;
+
+      await apiPost("/api/contacts", payload, token);
       setShowModal(false);
-      setFormData({ firstName: "", lastName: "", email: "", title: "", companyId: "" });
+      setFormData({ firstName: "", lastName: "", email: "", phone: "", title: "", companyId: "" });
       fetchContacts();
     } catch (e: any) {
       setError(e.message);
@@ -83,13 +112,17 @@ export default function ContactsPage() {
         searchValue={search}
         onSearchChange={setSearch}
         onExport={async () => {
-          const blob = await apiFetchBlob("/api/contacts/export?format=csv", { token });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "contacts-export.csv";
-          a.click();
-          URL.revokeObjectURL(url);
+          try {
+            const blob = await apiFetchBlob("/api/contacts/export?format=csv", { token });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "contacts-export.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch {
+            // Export not available
+          }
         }}
       />
 
@@ -132,19 +165,19 @@ export default function ContactsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">{c.email}</td>
-                  <td className="px-4 py-2.5">{c.companyId || "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{c.title || "—"}</td>
+                  <td className="px-4 py-2.5">{companyMap[c.companyId] || (c.companyId ? c.companyId.slice(0, 8) + "..." : "\u2014")}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{c.title || "\u2014"}</td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColors[c.stateCode] ?? statusColors.active}`}>
                       {c.stateCode || "active"}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs tabular-nums">
-                    {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"}
+                    {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "\u2014"}
                   </td>
                   <td className="px-4 py-2.5">
                     <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-5">
-                      {c.createdByAgentId ? c.createdByAgentId.slice(0, 12) + "…" : "—"}
+                      {c.createdByAgentId ? c.createdByAgentId.slice(0, 12) + "\u2026" : "\u2014"}
                     </Badge>
                   </td>
                 </tr>
@@ -173,12 +206,25 @@ export default function ContactsPage() {
                 <Input className="mt-1 text-xs" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
               <div>
+                <label className="text-xs text-muted-foreground">Phone</label>
+                <Input className="mt-1 text-xs" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              </div>
+              <div>
                 <label className="text-xs text-muted-foreground">Title</label>
                 <Input className="mt-1 text-xs" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Company</label>
-                <Input className="mt-1 text-xs" value={formData.companyId} onChange={(e) => setFormData({ ...formData, companyId: e.target.value })} />
+                <select
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs"
+                  value={formData.companyId}
+                  onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+                >
+                  <option value="">No company</option>
+                  {companies.map((co) => (
+                    <option key={co.id} value={co.id}>{co.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}

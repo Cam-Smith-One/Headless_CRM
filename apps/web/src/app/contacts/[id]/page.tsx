@@ -5,60 +5,71 @@ import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { token } = useAuth();
   const [contact, setContact] = useState<any>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCompose, setShowCompose] = useState(false);
   const [composeForm, setComposeForm] = useState({ to: "", subject: "", body: "" });
   const [sending, setSending] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   const loadEmails = useCallback(() => {
-    apiFetch<any>(`/api/emails?contactId=${id}`)
+    apiFetch<any>(`/api/activities?contactId=${id}&type=email`, { token })
       .then((res) => {
-        const items = res?.data ?? (Array.isArray(res) ? res : []);
-        setEmails(items.filter((a: any) => a.type === "email"));
+        const items = Array.isArray(res) ? res : res?.data ?? [];
+        setEmails(items);
       })
       .catch(() => setEmails([]));
-  }, [id]);
+  }, [id, token]);
 
   useEffect(() => {
     Promise.all([
-      apiFetch<any>(`/api/contacts/${id}`).catch(() => null),
-      apiFetch<any>("/api/events").then((res) => {
+      apiFetch<any>(`/api/contacts/${id}`, { token }).catch(() => null),
+      apiFetch<any>("/api/events", { token }).then((res) => {
         const items = Array.isArray(res) ? res : res?.data ?? [];
         return items.filter((e: any) => e.recordId === id);
       }).catch(() => []),
-    ]).then(([c, ev]) => {
+    ]).then(async ([c, ev]) => {
       setContact(c);
       setEvents(ev);
       if (c?.email) {
         setComposeForm((prev) => ({ ...prev, to: c.email }));
       }
+      // Resolve company name
+      if (c?.companyId) {
+        try {
+          const co = await apiFetch<any>(`/api/companies/${c.companyId}`, { token });
+          setCompanyName(co?.name ?? null);
+        } catch {
+          setCompanyName(null);
+        }
+      }
     }).finally(() => setLoading(false));
     loadEmails();
-  }, [id, loadEmails]);
+  }, [id, loadEmails, token]);
 
   async function handleSendEmail(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
     try {
-      await apiFetch("/api/emails/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: composeForm.to,
-          subject: composeForm.subject,
-          body: composeForm.body,
-          contactId: id,
-        }),
-      });
+      await apiPost("/api/emails/send", {
+        to: composeForm.to,
+        subject: composeForm.subject,
+        body: composeForm.body,
+        contactId: id,
+      }, token);
       setShowCompose(false);
       setComposeForm((prev) => ({ ...prev, subject: "", body: "" }));
       loadEmails();
@@ -66,6 +77,40 @@ export default function ContactDetailPage() {
       // silently handle
     } finally {
       setSending(false);
+    }
+  }
+
+  function startEditing() {
+    setEditForm({
+      firstName: contact.firstName || "",
+      lastName: contact.lastName || "",
+      email: contact.email || "",
+      phone: contact.phone || "",
+      title: contact.title || "",
+    });
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const updated = await apiPatch(`/api/contacts/${id}`, editForm, token);
+      setContact(updated);
+      setEditing(false);
+    } catch {
+      // handle error
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Delete this contact? This action cannot be undone.")) return;
+    try {
+      await apiDelete(`/api/contacts/${id}`, token);
+      router.push("/contacts");
+    } catch {
+      // handle error
     }
   }
 
@@ -78,38 +123,70 @@ export default function ContactDetailPage() {
         &larr; Back to Contacts
       </button>
 
-      <div className="flex items-start gap-4 mb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-lg font-medium text-muted-foreground shrink-0">
-          {contact.firstName?.[0]}{contact.lastName?.[0]}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-lg font-medium text-muted-foreground shrink-0">
+            {contact.firstName?.[0]}{contact.lastName?.[0]}
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold">{contact.firstName} {contact.lastName}</h1>
+            <p className="text-sm text-muted-foreground">{contact.title || "No title"}</p>
+            <p className="text-xs text-muted-foreground font-mono mt-1">{contact.id}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-semibold">{contact.firstName} {contact.lastName}</h1>
-          <p className="text-sm text-muted-foreground">{contact.title || "No title"}</p>
-          <p className="text-xs text-muted-foreground font-mono mt-1">{contact.id}</p>
+        <div className="flex gap-2">
+          {!editing && (
+            <>
+              <Button size="sm" variant="outline" onClick={startEditing}>Edit</Button>
+              <Button size="sm" variant="destructive" onClick={handleDelete}>Delete</Button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <Card className="bg-card/50">
-          <CardContent className="p-4 space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Details</h3>
-            <Field label="Email" value={contact.email} mono />
-            <Field label="Phone" value={contact.phone} />
-            <Field label="Title" value={contact.title} />
-            <Field label="Status" value={contact.stateCode || "active"} badge />
-            <Field label="Company" value={contact.companyId} mono />
+      {editing ? (
+        <Card className="mb-6">
+          <CardContent className="p-4 space-y-3">
+            <h3 className="text-xs font-medium text-muted-foreground">Edit Contact</h3>
+            {(["firstName", "lastName", "email", "phone", "title"] as const).map((field) => (
+              <div key={field}>
+                <label className="text-xs text-muted-foreground capitalize">{field.replace(/([A-Z])/g, " $1")}</label>
+                <input
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                  value={editForm[field] || ""}
+                  onChange={(e) => setEditForm({ ...editForm, [field]: e.target.value })}
+                />
+              </div>
+            ))}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+            </div>
           </CardContent>
         </Card>
-        <Card className="bg-card/50">
-          <CardContent className="p-4 space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Metadata</h3>
-            <Field label="Created" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString() : "\u2014"} />
-            <Field label="Updated" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString() : "\u2014"} />
-            <Field label="Created By" value={contact.createdByAgentId} mono />
-            <Field label="Updated By" value={contact.updatedByAgentId} mono />
-          </CardContent>
-        </Card>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <Card className="bg-card/50">
+            <CardContent className="p-4 space-y-2">
+              <h3 className="text-xs font-medium text-muted-foreground">Details</h3>
+              <Field label="Email" value={contact.email} mono />
+              <Field label="Phone" value={contact.phone} />
+              <Field label="Title" value={contact.title} />
+              <Field label="Status" value={contact.stateCode || "active"} badge />
+              <Field label="Company" value={companyName || (contact.companyId ? contact.companyId.slice(0, 12) + "..." : null)} />
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50">
+            <CardContent className="p-4 space-y-2">
+              <h3 className="text-xs font-medium text-muted-foreground">Metadata</h3>
+              <Field label="Created" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString() : "\u2014"} />
+              <Field label="Updated" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString() : "\u2014"} />
+              <Field label="Created By" value={contact.createdByAgentId} mono />
+              <Field label="Updated By" value={contact.updatedByAgentId} mono />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <h2 className="text-sm font-medium mb-3">Activity Timeline</h2>
       {events.length === 0 ? (

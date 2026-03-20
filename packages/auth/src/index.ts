@@ -178,6 +178,7 @@ export function createAuthService(db: any) {
         .set({ status: "active", updatedAt: new Date() })
         .where(and(eq(agents.id, agentId), eq(agents.tenantId, tenantId)))
         .returning();
+      if (!agent) throw new Error("Agent not found");
       return agent;
     },
 
@@ -187,6 +188,7 @@ export function createAuthService(db: any) {
         .set({ status: "suspended", updatedAt: new Date() })
         .where(and(eq(agents.id, agentId), eq(agents.tenantId, tenantId)))
         .returning();
+      if (!agent) throw new Error("Agent not found");
       return agent;
     },
 
@@ -196,6 +198,7 @@ export function createAuthService(db: any) {
         .set({ status: "decommissioned", updatedAt: new Date() })
         .where(and(eq(agents.id, agentId), eq(agents.tenantId, tenantId)))
         .returning();
+      if (!agent) throw new Error("Agent not found");
       return agent;
     },
 
