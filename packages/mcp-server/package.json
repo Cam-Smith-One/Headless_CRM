@@ -1,0 +1,26 @@
+{
+  "name": "@headless-crm/mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "headless-crm-mcp": "./src/stdio.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./tools": "./src/tools/index.ts"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@headless-crm/core": "*",
+    "@headless-crm/db": "*",
+    "@headless-crm/auth": "*",
+    "@headless-crm/events": "*",
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

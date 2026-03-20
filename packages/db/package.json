@@ -1,0 +1,36 @@
+{
+  "name": "@headless-crm/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./sqlite-schema": "./src/sqlite-schema.ts",
+    "./sqlite-client": "./src/sqlite-client.ts",
+    "./adapter": "./src/adapter.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "seed": "tsx src/seed.ts",
+    "generate:sqlite": "drizzle-kit generate --config=drizzle-sqlite.config.ts",
+    "migrate:sqlite": "drizzle-kit migrate --config=drizzle-sqlite.config.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.0",
+    "@neondatabase/serverless": "^0.10.0",
+    "postgres": "^3.4.0",
+    "nanoid": "^5.0.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

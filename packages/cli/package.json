@@ -1,0 +1,19 @@
+{
+  "name": "@headless-crm/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "headless-crm": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "echo 'CLI runs via tsx — no build needed'",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@headless-crm/api": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.7.0"
+  }
+}
