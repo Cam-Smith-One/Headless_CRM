@@ -32,7 +32,7 @@ export function useCustomFieldDefs(collection: string) {
   return defs;
 }
 
-/** Display custom field values (read-only) */
+/** Display custom field values (read-only). Shows all defined fields, even empty ones. */
 export function CustomFieldsDisplay({
   collection,
   customFields,
@@ -42,25 +42,33 @@ export function CustomFieldsDisplay({
 }) {
   const defs = useCustomFieldDefs(collection);
 
-  if (!defs.length || !customFields) return null;
+  if (!defs.length) return null;
 
-  const entries = defs.filter((d) => customFields[d.fieldName] !== undefined && customFields[d.fieldName] !== null);
-  if (!entries.length) return null;
+  const values = customFields ?? {};
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pt-2 border-t border-border mt-2">
       <h3 className="text-xs font-medium text-muted-foreground">Custom Fields</h3>
-      {entries.map((def) => {
-        const val = customFields[def.fieldName];
+      {defs.map((def) => {
+        const val = values[def.fieldName];
         let display: string;
-        if (Array.isArray(val)) display = val.join(", ");
-        else if (typeof val === "boolean") display = val ? "Yes" : "No";
-        else display = String(val);
+        if (val === undefined || val === null || val === "") {
+          display = "—";
+        } else if (Array.isArray(val)) {
+          display = val.length > 0 ? val.join(", ") : "—";
+        } else if (typeof val === "boolean") {
+          display = val ? "Yes" : "No";
+        } else {
+          display = String(val);
+        }
 
         return (
           <div key={def.fieldName} className="flex items-baseline justify-between">
-            <span className="text-xs text-muted-foreground">{def.fieldName}</span>
-            <span className="text-xs font-mono">{display}</span>
+            <span className="text-xs text-muted-foreground">
+              {def.fieldName}
+              {def.required && <span className="text-red-400 ml-0.5">*</span>}
+            </span>
+            <span className={`text-xs font-mono ${display === "—" ? "text-muted-foreground/50" : ""}`}>{display}</span>
           </div>
         );
       })}

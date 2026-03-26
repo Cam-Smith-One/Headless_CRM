@@ -287,7 +287,7 @@ export function defineTools(deps: ToolDeps) {
     },
 
     crm_create: {
-      description: "Create a new record. Contacts: {firstName, lastName, email, phone, title, companyId}. Companies: {name, domain, industry, size}. Deals: {name, value, currency, stage, pipelineId, companyId}. Cases: {title, description, status, priority, category, contactId, companyId, dealId}. You can also pass 'name' or 'fullName' for contacts — it will be split into firstName/lastName automatically.",
+      description: "Create a new record. Contacts: {firstName, lastName, email, phone, title, companyId}. Companies: {name, domain, industry, size}. Deals: {name, value, currency, stage, pipelineId, companyId}. Cases: {title, description, status, priority, category, contactId, companyId, dealId}. You can also pass 'name' or 'fullName' for contacts — it will be split into firstName/lastName automatically. Include 'customFields' object to set tenant-defined custom fields (use crm_list_fields to discover available fields).",
       inputSchema: z.object({
         collection: z.enum(["contacts", "companies", "deals", "cases"]),
         data: z.record(z.unknown()).optional(),
@@ -330,7 +330,7 @@ export function defineTools(deps: ToolDeps) {
     },
 
     crm_update: {
-      description: "Update specific fields on an existing record. Put fields to update inside 'data'.",
+      description: "Update specific fields on an existing record. Put fields to update inside 'data'. Include 'customFields' object to update tenant-defined custom fields (use crm_list_fields to discover available fields).",
       inputSchema: z.object({
         collection: z.enum(["contacts", "companies", "deals", "cases"]),
         id: z.string(),
