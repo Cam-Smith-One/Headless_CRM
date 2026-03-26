@@ -405,6 +405,41 @@ export function defineTools(deps: ToolDeps) {
       },
     },
 
+    crm_deal_add_contact: {
+      description: "Associate a contact with a deal. Deals can have multiple contacts.",
+      inputSchema: z.object({
+        dealId: z.string(),
+        contactId: z.string(),
+      }),
+      annotations: { readOnly: false },
+      async execute(input: any) {
+        return crm.deals.addContact(ctx, input.dealId, input.contactId);
+      },
+    },
+
+    crm_deal_remove_contact: {
+      description: "Remove a contact association from a deal.",
+      inputSchema: z.object({
+        dealId: z.string(),
+        contactId: z.string(),
+      }),
+      annotations: { readOnly: false },
+      async execute(input: any) {
+        return crm.deals.removeContact(ctx, input.dealId, input.contactId);
+      },
+    },
+
+    crm_deal_get_contacts: {
+      description: "List all contact IDs associated with a deal.",
+      inputSchema: z.object({
+        dealId: z.string(),
+      }),
+      annotations: { readOnly: true },
+      async execute(input: any) {
+        return { contactIds: await crm.deals.getContacts(ctx, input.dealId) };
+      },
+    },
+
     crm_delete: {
       description: "Soft-delete a record",
       inputSchema: z.object({

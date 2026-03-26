@@ -9,6 +9,7 @@ import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
 import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
+import { ContactDeals, ContactCases } from "@/components/related-records";
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -291,6 +292,11 @@ export default function ContactDetailPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="mt-8 space-y-6">
+        <ContactDeals contactId={id} />
+        <ContactCases contactId={id} />
       </div>
 
       <AttachmentsSection recordType="contact" recordId={id} />

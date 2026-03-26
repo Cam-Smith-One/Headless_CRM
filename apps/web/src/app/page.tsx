@@ -163,7 +163,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {editing && unusedWidgets.length > 0 && (
+          {unusedWidgets.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background hover:bg-muted text-sm font-medium h-8 px-2.5"
@@ -174,7 +174,7 @@ export default function Dashboard() {
                 {unusedWidgets.map((w) => (
                   <DropdownMenuItem
                     key={w.id}
-                    onSelect={() => addWidget(w.id)}
+                    onSelect={() => { addWidget(w.id); if (!editing) setEditing(true); }}
                   >
                     {w.title}
                   </DropdownMenuItem>

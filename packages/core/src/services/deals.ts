@@ -1,5 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
-import { deals } from "@headless-crm/db";
+import { deals, dealContacts } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
@@ -142,7 +142,7 @@ export function createDealsService(
 
     async query(
       ctx: CrmContext,
-      options: { limit?: number; offset?: number; stage?: string; pipelineId?: string }
+      options: { limit?: number; offset?: number; stage?: string; pipelineId?: string; companyId?: string }
     ): Promise<PaginatedResult<typeof deals.$inferSelect>> {
       const limit = options.limit ?? 50;
       const offset = options.offset ?? 0;
@@ -151,7 +151,8 @@ export function createDealsService(
         eq(deals.tenantId, ctx.tenantId),
         eq(deals.stateCode, "active"),
         options.stage ? eq(deals.stage, options.stage) : undefined,
-        options.pipelineId ? eq(deals.pipelineId, options.pipelineId) : undefined
+        options.pipelineId ? eq(deals.pipelineId, options.pipelineId) : undefined,
+        options.companyId ? eq(deals.companyId, options.companyId) : undefined
       );
 
       const data = await db
@@ -167,6 +168,50 @@ export function createDealsService(
         .where(whereCondition);
 
       return { data, total: Number(count), limit, offset, hasMore: offset + data.length < Number(count) };
+    },
+
+    async addContact(ctx: CrmContext, dealId: string, contactId: string) {
+      const deal = await this.getById(ctx, dealId);
+      if (!deal) throw new Error(`Deal ${dealId} not found`);
+
+      await db.insert(dealContacts).values({ dealId, contactId }).onConflictDoNothing();
+
+      await events.emit({
+        tenantId: ctx.tenantId,
+        eventType: "deals.contact_added",
+        recordType: "deals",
+        recordId: dealId,
+        agentId: ctx.agentId,
+        userId: ctx.userId,
+        changes: { contactId: { before: null, after: contactId } },
+      });
+
+      return { dealId, contactId };
+    },
+
+    async removeContact(ctx: CrmContext, dealId: string, contactId: string) {
+      const deal = await this.getById(ctx, dealId);
+      if (!deal) throw new Error(`Deal ${dealId} not found`);
+
+      await db.delete(dealContacts)
+        .where(and(eq(dealContacts.dealId, dealId), eq(dealContacts.contactId, contactId)));
+
+      await events.emit({
+        tenantId: ctx.tenantId,
+        eventType: "deals.contact_removed",
+        recordType: "deals",
+        recordId: dealId,
+        agentId: ctx.agentId,
+        userId: ctx.userId,
+        changes: { contactId: { before: contactId, after: null } },
+      });
+
+      return { dealId, contactId };
+    },
+
+    async getContacts(ctx: CrmContext, dealId: string) {
+      const rows = await db.select().from(dealContacts).where(eq(dealContacts.dealId, dealId));
+      return rows.map((r: any) => r.contactId);
     },
   };
 }

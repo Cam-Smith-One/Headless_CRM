@@ -31,6 +31,9 @@ export default function CaseDetailPage() {
   const { token } = useAuth();
   const [cas, setCas] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
+  const [contactName, setContactName] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [dealName, setDealName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
@@ -44,9 +47,30 @@ export default function CaseDetailPage() {
         const items = Array.isArray(res) ? res : res?.data ?? [];
         return items.filter((e: any) => e.recordId === id);
       }).catch(() => []),
-    ]).then(([c, ev]) => {
+    ]).then(async ([c, ev]) => {
       setCas(c);
       setEvents(ev);
+      // Resolve contact name
+      if (c?.contactId) {
+        try {
+          const contact = await apiFetch<any>(`/api/contacts/${c.contactId}`, { token });
+          setContactName([contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || contact?.email || null);
+        } catch { setContactName(null); }
+      }
+      // Resolve company name
+      if (c?.companyId) {
+        try {
+          const company = await apiFetch<any>(`/api/companies/${c.companyId}`, { token });
+          setCompanyName(company?.name ?? null);
+        } catch { setCompanyName(null); }
+      }
+      // Resolve deal name
+      if (c?.dealId) {
+        try {
+          const deal = await apiFetch<any>(`/api/deals/${c.dealId}`, { token });
+          setDealName(deal?.title ?? deal?.name ?? null);
+        } catch { setDealName(null); }
+      }
     }).finally(() => setLoading(false));
   }, [id, token]);
 
@@ -158,9 +182,9 @@ export default function CaseDetailPage() {
               <Field label="Status" value={cas.status} badge />
               <Field label="Priority" value={cas.priority} badge />
               <Field label="Category" value={cas.category} />
-              <Field label="Contact" value={cas.contactId} mono />
-              <Field label="Company" value={cas.companyId} mono />
-              <Field label="Deal" value={cas.dealId} mono />
+              <Field label="Contact" value={contactName || cas.contactId} mono={!contactName} />
+              <Field label="Company" value={companyName || cas.companyId} mono={!companyName} />
+              <Field label="Deal" value={dealName || cas.dealId} mono={!dealName} />
               <CustomFieldsDisplay collection="cases" customFields={cas.customFields} />
             </CardContent>
           </Card>

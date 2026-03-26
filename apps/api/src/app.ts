@@ -236,7 +236,8 @@ export function createApp() {
       const limit = parseInt(c.req.query("limit") || "") || 20;
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const search = c.req.query("search") || undefined;
-      return c.json(await getCRM().contacts.query(ctx, { limit, offset, search }));
+      const companyId = c.req.query("companyId") || undefined;
+      return c.json(await getCRM().contacts.query(ctx, { limit, offset, search, companyId }));
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -335,7 +336,8 @@ export function createApp() {
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const stage = c.req.query("stage") || undefined;
       const pipelineId = c.req.query("pipelineId") || undefined;
-      return c.json(await getCRM().deals.query(ctx, { limit, offset, stage, pipelineId }));
+      const companyId = c.req.query("companyId") || undefined;
+      return c.json(await getCRM().deals.query(ctx, { limit, offset, stage, pipelineId, companyId }));
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -374,6 +376,35 @@ export function createApp() {
       return c.json(record);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Deal-Contact associations
+  api.get("/deals/:id/contacts", async (c) => {
+    try {
+      const contactIds = await getCRM().deals.getContacts(c.get("ctx"), c.req.param("id"));
+      return c.json({ contactIds });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  api.post("/deals/:id/contacts", requireWrite, async (c) => {
+    try {
+      const { contactId } = await c.req.json();
+      const result = await getCRM().deals.addContact(c.get("ctx"), c.req.param("id"), contactId);
+      return c.json(result, 201);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  api.delete("/deals/:id/contacts/:contactId", requireDelete, async (c) => {
+    try {
+      const result = await getCRM().deals.removeContact(c.get("ctx"), c.req.param("id"), c.req.param("contactId"));
+      return c.json(result);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
     }
   });
 
@@ -431,7 +462,9 @@ export function createApp() {
       const search = c.req.query("search") || undefined;
       const status = c.req.query("status") || undefined;
       const priority = c.req.query("priority") || undefined;
-      return c.json(await getCRM().cases.query(ctx, { limit, offset, search, status, priority }));
+      const contactId = c.req.query("contactId") || undefined;
+      const companyId = c.req.query("companyId") || undefined;
+      return c.json(await getCRM().cases.query(ctx, { limit, offset, search, status, priority, contactId, companyId }));
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -849,6 +882,40 @@ export function createApp() {
       return c.json(result);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Inbound webhooks - receive data from external systems
+  api.post("/webhooks/inbound", requireWrite, async (c) => {
+    try {
+      const body = await c.req.json();
+      const ctx = c.get("ctx");
+      const { source, eventType, data } = body;
+      if (!source || !eventType) {
+        return c.json({ error: "source and eventType are required" }, 400);
+      }
+      // Deliver to all outbound webhooks subscribed to inbound.* events
+      const inboundEvent = {
+        eventType: `inbound.${eventType}`,
+        recordType: (data?.recordType || "external") as any,
+        recordId: data?.recordId || source,
+        tenantId: ctx.tenantId,
+        changes: {},
+        metadata: { source, ...data },
+        timestamp: new Date().toISOString(),
+      };
+      const webhooks = await getCRM().webhooks.list(ctx);
+      const active = webhooks.filter((w: any) =>
+        w.active && w.eventTypes?.some((et: string) =>
+          et === `inbound.${eventType}` || et === "inbound.*" || et === "*"
+        )
+      );
+      const results = await Promise.all(
+        active.map((w: any) => getCRM().webhooks.deliver(w, inboundEvent).catch((e: any) => ({ error: e.message })))
+      );
+      return c.json({ received: true, deliveredTo: active.length, results });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
     }
   });
 

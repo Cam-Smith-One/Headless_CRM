@@ -145,7 +145,7 @@ export function createContactsService(
 
     async query(
       ctx: CrmContext,
-      options: { limit?: number; offset?: number; search?: string }
+      options: { limit?: number; offset?: number; search?: string; companyId?: string }
     ): Promise<PaginatedResult<typeof contacts.$inferSelect>> {
       const limit = options.limit ?? 50;
       const offset = options.offset ?? 0;
@@ -157,6 +157,7 @@ export function createContactsService(
       const whereCondition = and(
         eq(contacts.tenantId, ctx.tenantId),
         eq(contacts.stateCode, "active"),
+        options.companyId ? eq(contacts.companyId, options.companyId) : undefined,
         escapedSearch
           ? ilike(
               sql`COALESCE(${contacts.firstName}, '') || ' ' || COALESCE(${contacts.lastName}, '') || ' ' || COALESCE(${contacts.email}, '')`,
