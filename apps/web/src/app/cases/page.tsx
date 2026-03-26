@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { apiFetch, apiPost, apiFetchBlob } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { CustomFieldsFormFields } from "@/components/custom-fields";
 
 
 const statusColors: Record<string, string> = {
@@ -39,6 +40,7 @@ export default function CasesPage() {
   const [formData, setFormData] = useState({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [createCustomFields, setCreateCustomFields] = useState<Record<string, unknown>>({});
 
   const contactMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -87,9 +89,11 @@ export default function CasesPage() {
       if (formData.description) payload.description = formData.description;
       if (formData.category) payload.category = formData.category;
       if (formData.companyId) payload.companyId = formData.companyId;
+      if (Object.keys(createCustomFields).length > 0) payload.customFields = createCustomFields;
       await apiPost("/api/cases", payload, token);
       setShowModal(false);
       setFormData({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "" });
+      setCreateCustomFields({});
       fetchCases();
     } catch (e: any) {
       setError(e.message);
@@ -259,6 +263,7 @@ export default function CasesPage() {
                 <label className="text-xs text-muted-foreground">Category</label>
                 <Input className="mt-1 text-xs" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} placeholder="general, technical, billing..." />
               </div>
+              <CustomFieldsFormFields collection="cases" values={createCustomFields} onChange={setCreateCustomFields} />
             </div>
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-4">

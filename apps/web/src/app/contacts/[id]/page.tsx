@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
+import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export default function ContactDetailPage() {
   const [sending, setSending] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
 
   const loadEmails = useCallback(() => {
@@ -88,13 +90,18 @@ export default function ContactDetailPage() {
       phone: contact.phone || "",
       title: contact.title || "",
     });
+    setCustomFieldValues(contact.customFields ?? {});
     setEditing(true);
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      const updated = await apiPatch(`/api/contacts/${id}`, editForm, token);
+      const payload: Record<string, unknown> = { ...editForm };
+      if (Object.keys(customFieldValues).length > 0) {
+        payload.customFields = customFieldValues;
+      }
+      const updated = await apiPatch(`/api/contacts/${id}`, payload, token);
       setContact(updated);
       setEditing(false);
     } catch {
@@ -158,6 +165,7 @@ export default function ContactDetailPage() {
                 />
               </div>
             ))}
+            <CustomFieldsFormFields collection="contacts" values={customFieldValues} onChange={setCustomFieldValues} />
             <div className="flex justify-end gap-2 pt-2">
               <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
@@ -174,6 +182,7 @@ export default function ContactDetailPage() {
               <Field label="Title" value={contact.title} />
               <Field label="Status" value={contact.stateCode || "active"} badge />
               <Field label="Company" value={companyName || (contact.companyId ? contact.companyId.slice(0, 12) + "..." : null)} />
+              <CustomFieldsDisplay collection="contacts" customFields={contact.customFields} />
             </CardContent>
           </Card>
           <Card className="bg-card/50">

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { apiFetch, apiPost, apiFetchBlob } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { CustomFieldsFormFields } from "@/components/custom-fields";
 
 const POLL_INTERVAL = 10_000;
 
@@ -28,6 +29,7 @@ export default function ContactsPage() {
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", phone: "", title: "", companyId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [createCustomFields, setCreateCustomFields] = useState<Record<string, unknown>>({});
   const isFirst = useRef(true);
 
   // Build a company lookup map for displaying names
@@ -89,10 +91,12 @@ export default function ContactsPage() {
       if (formData.phone) payload.phone = formData.phone;
       if (formData.title) payload.title = formData.title;
       if (formData.companyId) payload.companyId = formData.companyId;
+      if (Object.keys(createCustomFields).length > 0) payload.customFields = createCustomFields;
 
       await apiPost("/api/contacts", payload, token);
       setShowModal(false);
       setFormData({ firstName: "", lastName: "", email: "", phone: "", title: "", companyId: "" });
+      setCreateCustomFields({});
       fetchContacts();
     } catch (e: any) {
       setError(e.message);
@@ -226,6 +230,7 @@ export default function ContactsPage() {
                   ))}
                 </select>
               </div>
+              <CustomFieldsFormFields collection="contacts" values={createCustomFields} onChange={setCreateCustomFields} />
             </div>
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-4">

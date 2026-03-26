@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
+import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
 
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export default function DealDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     Promise.all([
@@ -53,6 +55,7 @@ export default function DealDetailPage() {
       stage: deal.stage || "",
       value: deal.value?.toString() || "",
     });
+    setCustomFieldValues(deal.customFields ?? {});
     setEditing(true);
   }
 
@@ -61,6 +64,9 @@ export default function DealDetailPage() {
     try {
       const payload: any = { ...editForm };
       if (payload.value) payload.value = Number(payload.value);
+      if (Object.keys(customFieldValues).length > 0) {
+        payload.customFields = customFieldValues;
+      }
       const updated = await apiPatch(`/api/deals/${id}`, payload, token);
       setDeal(updated);
       setEditing(false);
@@ -120,6 +126,7 @@ export default function DealDetailPage() {
                 />
               </div>
             ))}
+            <CustomFieldsFormFields collection="deals" values={customFieldValues} onChange={setCustomFieldValues} />
             <div className="flex justify-end gap-2 pt-2">
               <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
@@ -137,6 +144,7 @@ export default function DealDetailPage() {
               <Field label="Pipeline" value={pipelineName || (deal.pipelineId ? deal.pipelineId.slice(0, 12) + "..." : null)} />
               <Field label="Company" value={companyName || (deal.companyId ? deal.companyId.slice(0, 12) + "..." : null)} />
               <Field label="Status" value={deal.stateCode || "active"} badge />
+              <CustomFieldsDisplay collection="deals" customFields={deal.customFields} />
             </CardContent>
           </Card>
           <Card className="bg-card/50">

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { apiFetch, apiPost, apiFetchBlob } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { CustomFieldsFormFields } from "@/components/custom-fields";
 
 interface Deal {
   id: string;
@@ -85,6 +86,7 @@ export default function DealsPage() {
   const [formData, setFormData] = useState({ name: "", value: "", stage: "Prospecting", companyId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [createCustomFields, setCreateCustomFields] = useState<Record<string, unknown>>({});
 
   // Fetch pipelines on mount
   useEffect(() => {
@@ -134,9 +136,11 @@ export default function DealsPage() {
       if (formData.value) payload.value = formData.value;
       if (selectedPipelineId) payload.pipelineId = selectedPipelineId;
       if (formData.companyId) payload.companyId = formData.companyId;
+      if (Object.keys(createCustomFields).length > 0) payload.customFields = createCustomFields;
       await apiPost("/api/deals", payload, token);
       setShowModal(false);
       setFormData({ name: "", value: "", stage: stageOrder[0] || "Prospecting", companyId: "" });
+      setCreateCustomFields({});
       fetchDeals();
     } catch (e: any) {
       setError(e.message);
@@ -278,6 +282,7 @@ export default function DealsPage() {
                 <label className="text-xs text-muted-foreground">Company ID (optional)</label>
                 <Input className="mt-1 text-xs font-mono" value={formData.companyId} onChange={(e) => setFormData({ ...formData, companyId: e.target.value })} placeholder="co_..." />
               </div>
+              <CustomFieldsFormFields collection="deals" values={createCustomFields} onChange={setCreateCustomFields} />
             </div>
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-4">

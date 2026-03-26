@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
+import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
 
 const statusColors: Record<string, string> = {
   open: "bg-blue-500/15 text-blue-400",
@@ -34,6 +35,7 @@ export default function CaseDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     Promise.all([
@@ -56,13 +58,18 @@ export default function CaseDetailPage() {
       category: cas.category || "",
       description: cas.description || "",
     });
+    setCustomFieldValues(cas.customFields ?? {});
     setEditing(true);
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      const updated = await apiPatch(`/api/cases/${id}`, editForm, token);
+      const payload: any = { ...editForm };
+      if (Object.keys(customFieldValues).length > 0) {
+        payload.customFields = customFieldValues;
+      }
+      const updated = await apiPatch(`/api/cases/${id}`, payload, token);
       setCas(updated);
       setEditing(false);
     } catch { /* handle error */ } finally { setSaving(false); }
@@ -136,6 +143,7 @@ export default function CaseDetailPage() {
               <label className="text-xs text-muted-foreground">Description</label>
               <textarea className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm min-h-[80px]" value={editForm.description || ""} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
             </div>
+            <CustomFieldsFormFields collection="cases" values={customFieldValues} onChange={setCustomFieldValues} />
             <div className="flex justify-end gap-2 pt-2">
               <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
@@ -153,6 +161,7 @@ export default function CaseDetailPage() {
               <Field label="Contact" value={cas.contactId} mono />
               <Field label="Company" value={cas.companyId} mono />
               <Field label="Deal" value={cas.dealId} mono />
+              <CustomFieldsDisplay collection="cases" customFields={cas.customFields} />
             </CardContent>
           </Card>
           <Card className="bg-card/50">

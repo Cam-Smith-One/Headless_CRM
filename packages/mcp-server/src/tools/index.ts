@@ -161,7 +161,7 @@ export function defineTools(deps: ToolDeps) {
 
     crm_schema: {
       description:
-        "Retrieve the data model — collections, fields, types, and relationships",
+        "Retrieve the data model — collections, fields, types, relationships, and custom field definitions. Custom fields are included per collection. Use crm_list_fields for a focused view. Subscribe to custom_fields.defined / custom_fields.deleted events to be notified of schema changes.",
       inputSchema: z.object({
         collection: z
           .enum(["contacts", "companies", "deals", "activities", "pipelines", "tags", "cases"])
@@ -486,6 +486,33 @@ export function defineTools(deps: ToolDeps) {
       annotations: { readOnly: false },
       async execute(input: any) {
         return crm.customFields.define(ctx, input);
+      },
+    },
+
+    crm_list_fields: {
+      description:
+        "List custom field definitions for a collection (or all collections). Use this to discover what custom fields are available before creating/updating records. Returns field name, type, required, options, and description.",
+      inputSchema: z.object({
+        collection: z.enum(["contacts", "companies", "deals", "cases"]).optional(),
+      }),
+      annotations: { readOnly: true },
+      async execute(input: any) {
+        const fields = await crm.customFields.list(ctx, input.collection);
+        if (fields.length === 0) {
+          return { fields: [], hint: "No custom fields defined yet. Use crm_define_field to create one." };
+        }
+        return {
+          fields: fields.map((f: any) => ({
+            id: f.id,
+            collection: f.collection,
+            fieldName: f.fieldName,
+            fieldType: f.fieldType,
+            required: f.required,
+            options: f.options,
+            description: f.description,
+            displayOrder: f.displayOrder,
+          })),
+        };
       },
     },
 

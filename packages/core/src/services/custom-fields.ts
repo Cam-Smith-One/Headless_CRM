@@ -2,7 +2,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { customFieldDefinitions } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import type { CrmContext } from "../types";
+import type { CrmContext, EventEmitter } from "../types";
 
 const fieldTypeEnum = z.enum([
   "text",
@@ -36,7 +36,7 @@ export const updateFieldSchema = defineFieldSchema.partial().omit({
 export type DefineFieldInput = z.infer<typeof defineFieldSchema>;
 export type UpdateFieldInput = z.infer<typeof updateFieldSchema>;
 
-export function createCustomFieldsService(db: any) {
+export function createCustomFieldsService(db: any, events?: EventEmitter) {
   return {
     async define(ctx: CrmContext, input: DefineFieldInput) {
       const parsed = defineFieldSchema.parse(input);
@@ -50,6 +50,19 @@ export function createCustomFieldsService(db: any) {
           ...parsed,
         })
         .returning();
+
+      if (events) {
+        await events.emit({
+          tenantId: ctx.tenantId,
+          eventType: "custom_fields.defined",
+          recordType: "custom_fields",
+          recordId: id,
+          agentId: ctx.agentId,
+          userId: ctx.userId,
+          changes: {},
+          metadata: { collection: parsed.collection, fieldName: parsed.fieldName, fieldType: parsed.fieldType },
+        }).catch(() => {});
+      }
 
       return record;
     },
@@ -125,6 +138,19 @@ export function createCustomFieldsService(db: any) {
           )
         )
         .returning();
+
+      if (events) {
+        await events.emit({
+          tenantId: ctx.tenantId,
+          eventType: "custom_fields.deleted",
+          recordType: "custom_fields",
+          recordId: id,
+          agentId: ctx.agentId,
+          userId: ctx.userId,
+          changes: { active: { before: true, after: false } },
+          metadata: { collection: existing.collection, fieldName: existing.fieldName },
+        }).catch(() => {});
+      }
 
       return record;
     },

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { apiFetch, apiPost, apiFetchBlob } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { CustomFieldsFormFields } from "@/components/custom-fields";
 
 
 function healthColor(score: number) {
@@ -29,6 +30,7 @@ export default function CompaniesPage() {
   const [formData, setFormData] = useState({ name: "", domain: "", industry: "", size: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [createCustomFields, setCreateCustomFields] = useState<Record<string, unknown>>({});
 
   function fetchCompanies() {
     apiFetch<any>("/api/companies", { token })
@@ -44,9 +46,12 @@ export default function CompaniesPage() {
     setSubmitting(true);
     setError("");
     try {
-      await apiPost("/api/companies", formData, token);
+      const payload: Record<string, any> = { ...formData };
+      if (Object.keys(createCustomFields).length > 0) payload.customFields = createCustomFields;
+      await apiPost("/api/companies", payload, token);
       setShowModal(false);
       setFormData({ name: "", domain: "", industry: "", size: "" });
+      setCreateCustomFields({});
       fetchCompanies();
     } catch (e: any) {
       setError(e.message);
@@ -161,6 +166,7 @@ export default function CompaniesPage() {
                 <label className="text-xs text-muted-foreground">Size</label>
                 <Input className="mt-1 text-xs" value={formData.size} onChange={(e) => setFormData({ ...formData, size: e.target.value })} placeholder="1-10, 11-50, 51-200..." />
               </div>
+              <CustomFieldsFormFields collection="companies" values={createCustomFields} onChange={setCreateCustomFields} />
             </div>
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-4">

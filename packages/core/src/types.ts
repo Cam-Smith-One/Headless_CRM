@@ -6,7 +6,8 @@ export type CollectionName =
   | "pipelines"
   | "tags"
   | "cases"
-  | "approvals";
+  | "approvals"
+  | "custom_fields";
 
 export interface CrmContext {
   tenantId: string;

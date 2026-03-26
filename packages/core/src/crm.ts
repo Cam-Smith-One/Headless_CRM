@@ -133,7 +133,7 @@ export function createCRM(db: any, events: EventEmitter) {
   const webhooksServiceInstance = createWebhooksService(db, events);
   const notificationsServiceInstance = createNotificationsService(db);
   const persistingEvents = createPersistingEmitter(db, events, webhooksServiceInstance, notificationsServiceInstance);
-  const cfService = createCustomFieldsService(db);
+  const cfService = createCustomFieldsService(db, persistingEvents);
   const cfValidator = cfService.validate.bind(cfService);
   const embeddingsService = createEmbeddingsService(db);
   return {
