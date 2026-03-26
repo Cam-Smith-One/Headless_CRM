@@ -2,15 +2,17 @@
   "name": "@headless-crm/cli",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "bin": {
-    "headless-crm": "./dist/index.js"
+    "headless-crm": "./src/index.ts"
   },
   "scripts": {
     "build": "echo 'CLI runs via tsx — no build needed'",
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@headless-crm/api": "*"
+    "@headless-crm/api": "*",
+    "@hono/node-server": "^1.13.0"
   },
   "devDependencies": {
     "tsx": "^4.7.0",

@@ -88,8 +88,12 @@ function createRedisEventBus(redisUrl: string) {
 
   function getRedis() {
     if (!_redis) {
-      const Redis = require("ioredis");
-      _redis = new Redis(redisUrl);
+      try {
+        const Redis = require("ioredis");
+        _redis = new Redis(redisUrl);
+      } catch {
+        throw new Error("ioredis is not installed. Install it with: npm install ioredis");
+      }
     }
     return _redis;
   }

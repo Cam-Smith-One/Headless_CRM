@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { parseArgs } from "node:util";
+import { resolve } from "node:path";
 
 const { values } = parseArgs({
   options: {
@@ -14,7 +15,7 @@ const { values } = parseArgs({
   },
 });
 
-// Set env vars from CLI args
+// Set env vars from CLI args before importing the server
 if (values["db-url"]) process.env.DATABASE_URL = values["db-url"];
 if (values["admin-key"]) process.env.ADMIN_API_KEY = values["admin-key"];
 if (values["redis-url"]) process.env.REDIS_URL = values["redis-url"];
@@ -24,30 +25,27 @@ process.env.PORT = values.port!;
 // Auto-detect: if DATABASE_URL is set, use Postgres. Otherwise SQLite.
 if (!process.env.DATABASE_URL) {
   process.env.DB_TYPE = "sqlite";
-  process.env.DB_PATH = values["db-path"]!;
+  process.env.DB_PATH = resolve(values["db-path"]!);
 }
 
+const dbLabel = process.env.DATABASE_URL ? "PostgreSQL" : `SQLite (${process.env.DB_PATH})`;
+const redisLabel = process.env.REDIS_URL ? "Connected" : "Disabled (in-memory)";
+
 console.log(`
-  ┌─────────────────────────────────────────┐
-  │         Headless CRM v0.1.0             │
-  ├─────────────────────────────────────────┤
-  │  Database: ${(process.env.DATABASE_URL ? "PostgreSQL" : `SQLite (${values["db-path"]})`).padEnd(28)}│
-  │  Redis:    ${(process.env.REDIS_URL ? "Connected" : "Disabled (in-memory)").padEnd(28)}│
-  │  API:      http://${values.host}:${values.port}${" ".repeat(Math.max(0, 19 - values.host!.length - values.port!.length))}│
-  │  MCP:      http://${values.host}:${values.port}/mcp${" ".repeat(Math.max(0, 15 - values.host!.length - values.port!.length))}│
-  └─────────────────────────────────────────┘
+  Headless CRM v0.1.0
+  Database: ${dbLabel}
+  Redis:    ${redisLabel}
+  API:      http://${values.host}:${values.port}
+  MCP:      http://${values.host}:${values.port}/mcp
 `);
 
-// Import and start the server
-import("../../apps/api/src/server.js").then((mod) => {
-  const start = mod.start || mod.default?.start;
-  if (start) {
-    start({ port: parseInt(values.port!), host: values.host! });
-  } else {
-    console.error("Could not find start function in server module");
-    process.exit(1);
-  }
-}).catch((e) => {
-  console.error("Failed to start server:", e.message);
-  process.exit(1);
-});
+// Import and start the Hono API server
+import { serve } from "@hono/node-server";
+import { createApp } from "@headless-crm/api";
+
+const app = createApp();
+const port = parseInt(values.port!);
+const host = values.host!;
+
+serve({ fetch: app.fetch, port, hostname: host });
+console.log(`Headless CRM running at http://${host}:${port}`);
