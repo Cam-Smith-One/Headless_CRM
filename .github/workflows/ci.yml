@@ -11,8 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -44,28 +42,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-
-      - name: Restore Turbo cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
 
       - name: Disable Corepack
         run: corepack disable || true
 
-      - name: Install dependencies
-        run: npm ci || npm install
+      - name: Clean npm install
+        run: npm install --no-package-lock
 
       - name: Enable pgvector extension
         run: PGPASSWORD=headless psql -h localhost -p 5433 -U headless -d headless_crm -c "CREATE EXTENSION IF NOT EXISTS vector;"
@@ -73,9 +60,9 @@ jobs:
       - name: Run database migrations
         run: npm run db:migrate
 
-      - name: Build
-        run: npx turbo build --cache-dir=.turbo
+      - name: Build all packages
+        run: npx turbo build
 
       - name: Lint
-        run: npx turbo lint --cache-dir=.turbo
+        run: npx turbo lint
         continue-on-error: true
