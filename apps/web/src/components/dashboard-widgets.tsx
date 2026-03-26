@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 // ── Shared types ────────────────────────────────────────────────────────────
 
@@ -79,11 +80,12 @@ function ActivityIcon({ type }: { type: string }) {
 }
 
 function useStats() {
+  const { token } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
-    apiFetch<Stats>("/api/stats")
+    apiFetch<Stats>("/api/stats", { token })
       .then((s) => {
         if (!cancelled) setStats(s);
       })
@@ -94,7 +96,7 @@ function useStats() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token]);
   return { stats, loading };
 }
 
@@ -168,14 +170,18 @@ export function MetricsWidget() {
 }
 
 export function ActivityFeedWidget() {
+  const { token } = useAuth();
   const [events, setEvents] = useState<CrmEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<CrmEvent[]>("/api/events?limit=8")
-      .then((data) => {
-        if (!cancelled) setEvents(Array.isArray(data) ? data : []);
+    apiFetch<any>("/api/events?limit=8", { token })
+      .then((res) => {
+        if (!cancelled) {
+          const data = Array.isArray(res) ? res : res?.data ?? [];
+          setEvents(data);
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -184,7 +190,7 @@ export function ActivityFeedWidget() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token]);
 
   return (
     <>
@@ -229,12 +235,13 @@ export function ActivityFeedWidget() {
 }
 
 export function AgentLeaderboardWidget() {
+  const { token } = useAuth();
   const [topAgents, setTopAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<any>("/api/agents")
+    apiFetch<any>("/api/agents", { token })
       .then((res) => {
         if (cancelled) return;
         const agents = Array.isArray(res) ? res : res?.data;
@@ -259,7 +266,7 @@ export function AgentLeaderboardWidget() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token]);
 
   return (
     <>
@@ -382,12 +389,13 @@ export function CasesSummaryWidget() {
 }
 
 export function RecentContactsWidget() {
+  const { token } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<any>("/api/contacts?limit=5&sort=-createdAt")
+    apiFetch<any>("/api/contacts?limit=5&sort=-createdAt", { token })
       .then((res) => {
         if (cancelled) return;
         const list = Array.isArray(res) ? res : res?.data ?? [];
@@ -400,7 +408,7 @@ export function RecentContactsWidget() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token]);
 
   return (
     <div className="border border-border rounded-lg divide-y divide-border">

@@ -1173,6 +1173,28 @@ export function createApp() {
       return c.json({ error: e.message }, 500);
     }
   });
+  // ── API Documentation (public, no auth) ──────────────────────────────────
+  app.get("/api/docs/openapi.json", (c) => {
+    return c.json(getOpenAPISpec());
+  });
+
+  app.get("/api/docs", (c) => {
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Headless CRM — API Reference</title>
+  <meta name="description" content="Headless CRM API documentation" />
+</head>
+<body>
+  <script id="api-reference" data-url="/api/docs/openapi.json"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>`;
+    return c.html(html);
+  });
+
   app.route("/api", api);
 
   // MCP Streamable HTTP transport (Web Standard API)
@@ -1291,28 +1313,6 @@ export function createApp() {
   };
   app.get("/.well-known/mcp.json", mcpDiscovery);
   app.get("/api/.well-known/mcp.json", mcpDiscovery);
-
-  // ── API Documentation ───────────────────────────────────────────────────
-  app.get("/api/docs/openapi.json", (c) => {
-    return c.json(getOpenAPISpec());
-  });
-
-  app.get("/api/docs", (c) => {
-    const html = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Headless CRM — API Reference</title>
-  <meta name="description" content="Headless CRM API documentation" />
-</head>
-<body>
-  <script id="api-reference" data-url="/api/docs/openapi.json"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-</body>
-</html>`;
-    return c.html(html);
-  });
 
   return app;
 }
