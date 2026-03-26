@@ -129,7 +129,7 @@ export default function DealsPage() {
     setSubmitting(true);
     setError("");
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, any> = {
         name: formData.name,
         stage: formData.stage,
       };

@@ -84,7 +84,7 @@ export default function ContactsPage() {
     setError("");
     try {
       // Only send non-empty fields
-      const payload: Record<string, string> = {};
+      const payload: Record<string, any> = {};
       if (formData.firstName) payload.firstName = formData.firstName;
       if (formData.lastName) payload.lastName = formData.lastName;
       if (formData.email) payload.email = formData.email;

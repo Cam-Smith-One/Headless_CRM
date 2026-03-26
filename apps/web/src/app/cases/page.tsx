@@ -80,7 +80,7 @@ export default function CasesPage() {
     setSubmitting(true);
     setError("");
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, any> = {
         title: formData.title,
         status: formData.status,
         priority: formData.priority,
