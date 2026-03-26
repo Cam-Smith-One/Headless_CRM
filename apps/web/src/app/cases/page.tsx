@@ -30,13 +30,27 @@ export default function CasesPage() {
   const router = useRouter();
   const { token } = useAuth();
   const [cases, setCases] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const isFirst = useRef(true);
-  const [formData, setFormData] = useState({ title: "", status: "open", priority: "medium", category: "general" });
+  const [formData, setFormData] = useState({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const contactMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of contacts) map[c.id] = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email || c.id;
+    return map;
+  }, [contacts]);
+
+  const companyMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of companies) map[c.id] = c.name;
+    return map;
+  }, [companies]);
 
   function fetchCases() {
     apiFetch<any>("/api/cases", { token })
@@ -48,13 +62,34 @@ export default function CasesPage() {
       .finally(() => { if (isFirst.current) { setLoading(false); isFirst.current = false; } });
   }
 
+  function fetchContacts() {
+    apiFetch<any>("/api/contacts", { token })
+      .then((res) => { const data = Array.isArray(res) ? res : res?.data; if (data) setContacts(data); })
+      .catch(() => {});
+  }
+
+  function fetchCompanies() {
+    apiFetch<any>("/api/companies", { token })
+      .then((res) => { const data = Array.isArray(res) ? res : res?.data; if (data) setCompanies(data); })
+      .catch(() => {});
+  }
+
   async function handleCreate() {
     setSubmitting(true);
     setError("");
     try {
-      await apiPost("/api/cases", formData, token);
+      const payload: Record<string, string> = {
+        title: formData.title,
+        status: formData.status,
+        priority: formData.priority,
+        contactId: formData.contactId,
+      };
+      if (formData.description) payload.description = formData.description;
+      if (formData.category) payload.category = formData.category;
+      if (formData.companyId) payload.companyId = formData.companyId;
+      await apiPost("/api/cases", payload, token);
       setShowModal(false);
-      setFormData({ title: "", status: "open", priority: "medium", category: "general" });
+      setFormData({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "" });
       fetchCases();
     } catch (e: any) {
       setError(e.message);
@@ -67,6 +102,8 @@ export default function CasesPage() {
     isFirst.current = true;
     setLoading(true);
     fetchCases();
+    fetchContacts();
+    fetchCompanies();
     const id = setInterval(fetchCases, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [token]);
@@ -116,6 +153,7 @@ export default function CasesPage() {
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Status</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Priority</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Category</th>
+                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Contact</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Company</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Assigned Agent</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Created</th>
@@ -147,8 +185,11 @@ export default function CasesPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {c.category}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                    {c.companyId || "—"}
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {c.contactId ? (contactMap[c.contactId] || c.contactId.slice(0, 12) + "…") : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {c.companyId ? (companyMap[c.companyId] || c.companyId.slice(0, 12) + "…") : "—"}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                     {c.assignedAgentId ? c.assignedAgentId.slice(0, 12) + "…" : "—"}
@@ -172,6 +213,28 @@ export default function CasesPage() {
               <div>
                 <label className="text-xs text-muted-foreground">Title</label>
                 <Input className="mt-1 text-xs" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Description</label>
+                <Input className="mt-1 text-xs" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe the issue..." />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Contact <span className="text-red-400">*</span></label>
+                <select className="mt-1 w-full rounded-md border border-border bg-secondary px-3 py-2 text-xs text-foreground" value={formData.contactId} onChange={(e) => setFormData({ ...formData, contactId: e.target.value })}>
+                  <option value="">Select a contact...</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>{contactMap[c.id] || c.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Company (optional)</label>
+                <select className="mt-1 w-full rounded-md border border-border bg-secondary px-3 py-2 text-xs text-foreground" value={formData.companyId} onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}>
+                  <option value="">None</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name || c.id}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Status</label>
@@ -200,7 +263,7 @@ export default function CasesPage() {
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="secondary" size="sm" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button size="sm" onClick={handleCreate} disabled={submitting || !formData.title}>
+              <Button size="sm" onClick={handleCreate} disabled={submitting || !formData.title || !formData.contactId}>
                 {submitting ? "Creating..." : "Create Case"}
               </Button>
             </div>

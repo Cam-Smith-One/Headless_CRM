@@ -10,7 +10,7 @@ export const createCaseSchema = z.object({
   status: z.enum(["open", "in_progress", "waiting", "resolved", "closed"]).default("open"),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   category: z.string().optional(),
-  contactId: z.string().optional(),
+  contactId: z.string().min(1, "Contact is required"),
   companyId: z.string().optional(),
   dealId: z.string().optional(),
   assignedAgentId: z.string().optional(),
