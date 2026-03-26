@@ -127,13 +127,14 @@ export default function DealsPage() {
     setSubmitting(true);
     setError("");
     try {
-      await apiPost("/api/deals", {
+      const payload: Record<string, string> = {
         name: formData.name,
-        value: parseFloat(formData.value) || 0,
         stage: formData.stage,
-        pipelineId: selectedPipelineId || undefined,
-        companyId: formData.companyId || undefined,
-      }, token);
+      };
+      if (formData.value) payload.value = formData.value;
+      if (selectedPipelineId) payload.pipelineId = selectedPipelineId;
+      if (formData.companyId) payload.companyId = formData.companyId;
+      await apiPost("/api/deals", payload, token);
       setShowModal(false);
       setFormData({ name: "", value: "", stage: stageOrder[0] || "Prospecting", companyId: "" });
       fetchDeals();

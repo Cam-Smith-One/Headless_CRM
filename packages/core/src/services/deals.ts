@@ -9,7 +9,7 @@ export const createDealSchema = z.object({
   value: z.string().optional(),
   currency: z.string().default("USD"),
   stage: z.string().min(1),
-  pipelineId: z.string().min(1),
+  pipelineId: z.string().optional(),
   companyId: z.string().optional(),
   closeDate: z.string().datetime().optional(),
   ownerAgentId: z.string().optional(),
