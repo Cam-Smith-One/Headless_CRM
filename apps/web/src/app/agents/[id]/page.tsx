@@ -106,7 +106,7 @@ export default function AgentDetailPage() {
   if (!agent) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Agent not found</div>;
 
   return (
-    <div className="p-6 max-w-[1000px]">
+    <div className="p-4 sm:p-6 max-w-[1000px]">
       <button onClick={() => router.push("/agents")} className="text-xs text-muted-foreground hover:text-foreground mb-4 flex items-center gap-1">
         &larr; Back to Agents
       </button>

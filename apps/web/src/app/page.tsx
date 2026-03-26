@@ -132,7 +132,7 @@ export default function Dashboard() {
   // Suppress hydration flash — render nothing until client mount
   if (!mounted) {
     return (
-      <div className="p-6 max-w-[1400px]">
+      <div className="p-4 sm:p-6 max-w-[1400px]">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Overview</h1>
@@ -146,9 +146,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 max-w-[1400px]">
+    <div className="p-4 sm:p-6 max-w-[1400px]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-3 mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Overview</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -200,14 +200,14 @@ export default function Dashboard() {
       </div>
 
       {/* Widget grid */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {layout.map((item, idx) => {
           const def = getWidgetDef(item.id);
           const spanClass =
             item.span === 3
-              ? "col-span-3"
+              ? "col-span-1 md:col-span-3"
               : item.span === 2
-                ? "col-span-2"
+                ? "col-span-1 md:col-span-2"
                 : "col-span-1";
 
           return (

@@ -72,7 +72,7 @@ export default function CompanyDetailPage() {
   if (!company) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Company not found</div>;
 
   return (
-    <div className="p-6 max-w-[1000px]">
+    <div className="p-4 sm:p-6 max-w-[1000px]">
       <button onClick={() => router.push("/companies")} className="text-xs text-muted-foreground hover:text-foreground mb-4 flex items-center gap-1">
         &larr; Back to Companies
       </button>
@@ -115,7 +115,7 @@ export default function CompanyDetailPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2">
           <Card className="bg-card/50">
             <CardContent className="p-4 space-y-2">
               <h3 className="text-xs font-medium text-muted-foreground">Details</h3>

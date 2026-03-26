@@ -306,7 +306,7 @@ function SearchBox() {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -333,8 +333,25 @@ export function Sidebar() {
     return () => clearInterval(id);
   }, []);
 
+  // Close sidebar on navigation (mobile)
+  useEffect(() => {
+    if (onClose) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   return (
-    <aside className="flex h-screen w-56 flex-col border-r border-border bg-sidebar">
+    <>
+      {/* Mobile backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 flex h-screen w-56 flex-col border-r border-border bg-sidebar transition-transform duration-200 md:static md:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}>
       <div className="flex items-center gap-2.5 px-4 py-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
           <span className="text-xs font-bold text-primary-foreground">H</span>
@@ -449,5 +466,6 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }
