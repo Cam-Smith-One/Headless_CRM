@@ -23,7 +23,6 @@
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },
-  "packageManager": "npm@10.9.2",
   "license": "AGPL-3.0",
   "description": "The open-source CRM built for AI agents. MCP-native, API-first, self-hostable."
 }
