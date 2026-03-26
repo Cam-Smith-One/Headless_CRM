@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  # Cancel in-progress runs for the same branch/PR to save minutes
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Turbo remote cache — set TURBO_TOKEN + TURBO_TEAM in repo secrets to enable
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+  ci:
+    name: Build, Typecheck & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: headless
+          POSTGRES_PASSWORD: headless
+          POSTGRES_DB: headless_crm
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U headless"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://headless:headless@localhost:5433/headless_crm
+      JWT_SECRET: ci-test-secret
+      ADMIN_API_KEY: ci-test-admin-key
+      PORT: "3001"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Turbo needs parent commit for change detection
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      # ── Dependency caching ─────────────────────────────────────────────────
+      # actions/setup-node's built-in npm cache handles node_modules restoration.
+      # We additionally cache the Turbo build cache for faster incremental builds.
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      # ── Install ────────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Database setup ─────────────────────────────────────────────────────
+      - name: Run database migrations
+        run: npm run db:migrate
+
+      # ── Typecheck ──────────────────────────────────────────────────────────
+      - name: Typecheck
+        run: npx turbo typecheck --cache-dir=.turbo
+        # Falls back gracefully if individual packages don't define a typecheck script
+        continue-on-error: false
+
+      # ── Build ──────────────────────────────────────────────────────────────
+      - name: Build
+        run: npx turbo build --cache-dir=.turbo
+
+      # ── Lint ───────────────────────────────────────────────────────────────
+      - name: Lint
+        run: npx turbo lint --cache-dir=.turbo
+
+      # ── Tests ──────────────────────────────────────────────────────────────
+      - name: Test
+        run: npx turbo test --cache-dir=.turbo
+        env:
+          # Make database available to test suites
+          DATABASE_URL: postgresql://headless:headless@localhost:5433/headless_crm

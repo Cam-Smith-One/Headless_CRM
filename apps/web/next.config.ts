@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Transpile monorepo packages so Next.js can bundle them
   transpilePackages: [
     "@headless-crm/api",

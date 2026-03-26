@@ -1,23 +1,103 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/MCP-Native-blueviolet?style=for-the-badge" alt="MCP Native" />
+  <img src="https://img.shields.io/badge/API-First-blue?style=for-the-badge" alt="API First" />
+  <img src="https://img.shields.io/badge/Self--Hostable-green?style=for-the-badge" alt="Self-Hostable" />
+</p>
+
 # Headless CRM
 
 **The open-source CRM built for AI agents. MCP-native, API-first, self-hostable.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![CI](https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/Cam-Smith-One/Headless_CRM/actions)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
 
 ---
 
-## Overview
+## Why Headless CRM?
 
-Headless CRM is an open-source, agent-first customer relationship management system. Unlike traditional CRMs that bolt AI features onto human-centric interfaces, Headless CRM treats AI agents as first-class operators with their own identities, permissions, and audit trails.
+Traditional CRMs were designed for humans clicking buttons. Headless CRM is designed for **AI agents making API calls**.
 
-Agents connect through the **Model Context Protocol (MCP)** — the same open standard used by Claude, Cursor, and other AI tools — giving them structured, authenticated access to contacts, companies, deals, pipelines, activities, and more.
+- **MCP-native** — 18+ tools via the Model Context Protocol. Connect Claude, Cursor, or any MCP client in seconds.
+- **Agent identity** — Every agent gets its own API key, JWT, role, and audit trail. No more repurposing user accounts for bots.
+- **Event-sourced** — Every mutation tracked with before/after diffs. Full audit trail, webhook notifications, approval workflows.
+- **Self-hostable** — Docker, SQLite single-binary, or one-click Vercel deploy. Your data stays yours.
 
-**Why Headless CRM exists:**
+<details>
+<summary><strong>See it in action: MCP agent creating a contact</strong></summary>
 
-- Traditional CRMs were designed for humans clicking buttons, not agents making API calls.
-- Agent identity matters. Repurposing user accounts for bots creates security and audit gaps.
-- CRM data is high-value. Every read and write should be traceable, permissioned, and replayable.
-- AI agents need structured tool interfaces, not screen-scraped UIs.
+```
+User: Create a contact for Jane Smith at Acme Corp, email jane@acme.com
+
+Agent (via MCP): Using crm_create tool...
+  → collection: "contacts"
+  → firstName: "Jane", lastName: "Smith"
+  → email: "jane@acme.com", companyId: "comp_abc123"
+
+Result: Contact created (id: c_xK9mPq2r)
+  → Event emitted: contacts.created
+  → Webhook fired to 2 subscribers
+  → Notification sent to dashboard
+```
+
+</details>
+
+---
+
+## Quick Start
+
+### Option 1: One-Command Setup (recommended)
+
+```bash
+git clone https://github.com/Cam-Smith-One/Headless_CRM.git
+cd Headless_CRM
+./scripts/setup.sh
+```
+
+This installs dependencies, starts PostgreSQL via Docker, runs migrations, seeds demo data, and tells you how to start.
+
+Then:
+
+```bash
+npm run dev    # API on :3001, Dashboard on :3000
+```
+
+### Option 2: SQLite (no Docker needed)
+
+```bash
+git clone https://github.com/Cam-Smith-One/Headless_CRM.git
+cd Headless_CRM
+./scripts/setup-sqlite.sh
+npm start      # API on :3001 with SQLite
+```
+
+### Option 3: Docker Compose (full stack)
+
+```bash
+git clone https://github.com/Cam-Smith-One/Headless_CRM.git
+cd Headless_CRM
+cp .env.example .env
+docker compose up -d    # PostgreSQL + API + Web Dashboard
+```
+
+Visit http://localhost:3000 for the dashboard, http://localhost:3001/api/docs for the API.
+
+### Option 4: Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
+
+1. Click the button above
+2. Add a **Neon Postgres** integration from the Vercel Marketplace
+3. Set `JWT_SECRET` and `ADMIN_API_KEY` environment variables
+4. Deploy
+
+### Option 5: npx (scaffolder)
+
+```bash
+npx create-headless-crm
+```
+
+Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, and get running in under a minute.
 
 ---
 
@@ -29,6 +109,7 @@ Agents connect through the **Model Context Protocol (MCP)** — the same open st
 - **Activities** — timeline events (calls, emails, meetings, notes, tasks, agent actions)
 - **Tags** — categorization labels for any record
 - **Custom Fields** — extend any entity with tenant-specific fields (text, number, boolean, date, select, multiselect, url, email) with validation
+- **Entity Relationships** — contacts ↔ companies ↔ deals ↔ cases with full linkage
 
 ### Agent Platform
 - **MCP-native** — 18+ tools for AI agent access via Streamable HTTP or stdio
@@ -39,30 +120,33 @@ Agents connect through the **Model Context Protocol (MCP)** — the same open st
 
 ### API & Integrations
 - **REST API** — full CRUD for all entities with OpenAPI 3.1 docs (Scalar UI at `/api/docs`)
-- **Webhooks** — HTTP callbacks with HMAC-SHA256 signing, timestamp replay protection, delivery retries with exponential backoff
+- **Webhooks** — outbound HTTP callbacks with HMAC-SHA256 signing, delivery retries
+- **Inbound Webhooks** — receive data from external systems
+- **MCP Tools** — agents pull data on demand via Model Context Protocol
 - **Email Integration** — send/log emails via Resend with graceful degradation
-- **Vector Search** — semantic search via OpenAI text-embedding-3-small + pgvector cosine similarity
+- **Vector Search** — semantic search via OpenAI text-embedding-3-small + pgvector
 
 ### Security
 - **Rate Limiting** — 100 req/min authenticated, 20 req/min unauthenticated
-- **CORS Lockdown** — configurable allowed origins via `CORS_ORIGINS` env var
+- **CORS Lockdown** — configurable allowed origins
 - **Timing-safe Admin Key** — prevents timing attacks on admin endpoints
-- **MCP Session TTL** — automatic session cleanup (30min timeout, 60s interval)
+- **MCP Session TTL** — automatic session cleanup (30min timeout)
 - **Webhook Replay Protection** — timestamp-based with configurable tolerance
 
-### Monitoring & UI
+### Dashboard
 - **Customizable Dashboard** — drag-and-drop widgets with localStorage persistence
-- **Notification System** — auto-generated notifications for key CRM events with read/unread states
+- **Notification System** — auto-generated notifications for key CRM events
 - **File Attachments** — upload and manage files on any record
-- **Light/Dark Mode** — full theme support in the Next.js dashboard
+- **Light/Dark Mode** — full theme support
+- **Mobile Responsive** — works on desktop and mobile
 - **Real-time Polling** — dashboard auto-refreshes with live data
 
 ### Deployment
 - **Event Sourcing** — every mutation persisted with before/after change tracking
 - **Multi-tenant** — complete data isolation per tenant
-- **Self-hostable** — Docker Compose, single-binary CLI, or deploy to Vercel
-- **Dual Database** — PostgreSQL (production) or SQLite (local/edge/single-binary)
-- **Redis Optional** — falls back to in-memory event bus when Redis is unavailable
+- **Self-hostable** — Docker Compose, single-binary CLI, or Vercel
+- **Dual Database** — PostgreSQL (production) or SQLite (local/edge)
+- **Redis Optional** — falls back to in-memory event bus when unavailable
 
 ---
 
@@ -106,58 +190,6 @@ Agents connect through the **Model Context Protocol (MCP)** — the same open st
 
 ---
 
-## Quick Start
-
-### Option 1: Docker Compose (recommended)
-
-```bash
-git clone https://github.com/YOUR_ORG/headless-crm.git
-cd headless-crm
-cp .env.example .env
-npm install
-
-# Start PostgreSQL
-docker compose up -d
-
-# Run migrations and seed demo data
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-
-# Start dev servers (API on :3001, Web on :3000)
-npm run dev
-```
-
-### Option 2: Single Binary (SQLite)
-
-No Docker or PostgreSQL needed — runs entirely on SQLite:
-
-```bash
-git clone https://github.com/YOUR_ORG/headless-crm.git
-cd headless-crm
-npm install
-
-# Start with SQLite (auto-creates headless-crm.db)
-npm start
-
-# Or with options:
-npx tsx packages/cli/src/index.ts --port 3001 --admin-key my-secret-key
-```
-
-### Option 3: Deploy to Vercel
-
-The repo deploys as a single Vercel project — the Next.js web app proxies API routes to the Hono backend via catch-all API routes.
-
-1. Push to GitHub
-2. Import in Vercel Dashboard
-3. Add a **Neon Postgres** integration (Marketplace)
-4. Set environment variables: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_API_KEY`
-5. Deploy
-
-Redis is optional — the event bus falls back to in-memory mode on Vercel.
-
----
-
 ## Project Structure
 
 ```
@@ -174,37 +206,14 @@ headless-crm/
 │   ├── events/         Event bus (Redis Streams or in-memory fallback)
 │   ├── mcp-server/     MCP server with 18+ tools
 │   └── cli/            CLI entry point (npx headless-crm start)
-├── scripts/            Provisioning scripts
-├── docker-compose.yml  PostgreSQL + optional Redis
-├── Dockerfile          Multi-arch Docker image
+├── scripts/            Setup & provisioning scripts
+├── docker-compose.yml  PostgreSQL + API + Web (full stack)
+├── Dockerfile          API Docker image
+├── Dockerfile.web      Web dashboard Docker image
 ├── vercel.json         Vercel deployment config
 ├── turbo.json          Turborepo pipeline config
 └── package.json        Workspace root
 ```
-
----
-
-## Database Tables
-
-| Table | Description |
-|-------|-------------|
-| `tenants` | Multi-tenant isolation |
-| `agents` | AI agent identities, API keys, roles, metadata |
-| `contacts` | People records with pgvector embeddings |
-| `companies` | Organization records with parent hierarchy |
-| `deals` | Sales opportunities tied to pipelines |
-| `pipelines` | Pipeline definitions with JSONB stages |
-| `activities` | Timeline events (calls, emails, meetings, notes, tasks) |
-| `tags` / `record_tags` | Categorization labels |
-| `agent_memories` | Agent-specific persistent memory (pgvector) |
-| `events` | Event sourcing audit trail |
-| `cases` | Support/service cases with status and priority |
-| `webhooks` | Registered webhook endpoints with HMAC secrets |
-| `webhook_deliveries` | Delivery attempts and retry tracking |
-| `custom_field_definitions` | Tenant-specific field definitions per collection |
-| `approvals` | Human approval requests for agent actions |
-| `attachments` | File attachments on any record |
-| `notifications` | System notifications with read/unread state |
 
 ---
 
@@ -218,6 +227,7 @@ AI agents connect via the Model Context Protocol. The server exposes 18+ tools:
 | `crm_get` | Retrieve a single record by ID | No |
 | `crm_search` | Semantic and keyword search across collections | No |
 | `crm_schema` | Retrieve data model, fields, types, relationships | No |
+| `crm_list_fields` | List custom field definitions for a collection | No |
 | `crm_create` | Create a new record with validation | Yes |
 | `crm_update` | Update specific fields on an existing record | Yes |
 | `crm_delete` | Soft-delete a record | Yes |
@@ -232,6 +242,9 @@ AI agents connect via the Model Context Protocol. The server exposes 18+ tools:
 | `crm_attach_file` | Attach a file to a record | Yes |
 | `crm_import` | Bulk import records from JSON/CSV | Yes |
 | `crm_memory_propose` | Store an agent memory (insight, preference) | Yes |
+| `crm_deal_add_contact` | Link a contact to a deal | Yes |
+| `crm_deal_remove_contact` | Unlink a contact from a deal | Yes |
+| `crm_deal_get_contacts` | List contacts linked to a deal | No |
 
 ### Connecting via Streamable HTTP
 
@@ -277,6 +290,8 @@ curl -X POST http://localhost:3001/api/agents/provision \
 
 All routes under `/api` require a Bearer token (except health checks and setup status).
 
+Full interactive API docs available at `/api/docs` (Scalar UI).
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
@@ -289,6 +304,7 @@ All routes under `/api` require a Bearer token (except health checks and setup s
 | **Deals** | | |
 | `GET/POST` | `/api/deals` | List / Create (supports `stage`, `pipelineId` filters) |
 | `GET/PATCH/DELETE` | `/api/deals/:id` | Get / Update / Delete |
+| `GET/POST/DELETE` | `/api/deals/:id/contacts` | Deal-contact associations |
 | **Cases** | | |
 | `GET/POST` | `/api/cases` | List / Create (supports `status`, `priority` filters) |
 | `GET/PATCH/DELETE` | `/api/cases/:id` | Get / Update / Delete |
@@ -304,17 +320,17 @@ All routes under `/api` require a Bearer token (except health checks and setup s
 | `POST` | `/api/agents/provision` | Bootstrap provision (Admin Key) |
 | `POST` | `/api/agents/:id/suspend` | Suspend agent |
 | `POST` | `/api/agents/:id/approve` | Approve pending agent |
-| `POST` | `/api/agents/:id/reject` | Reject pending agent |
 | **Webhooks** | | |
 | `GET/POST` | `/api/webhooks` | List / Register |
 | `GET/PATCH/DELETE` | `/api/webhooks/:id` | Get / Update / Delete |
 | `GET` | `/api/webhooks/:id/deliveries` | Delivery history |
 | `POST` | `/api/webhooks/:id/test` | Send test event |
+| `POST` | `/api/webhooks/inbound` | Receive external data |
 | **Custom Fields** | | |
 | `GET/POST` | `/api/custom-fields` | List / Define |
 | `GET/PATCH/DELETE` | `/api/custom-fields/:id` | Get / Update / Delete |
 | **Approvals** | | |
-| `GET` | `/api/approvals` | List approvals (supports `status` filter) |
+| `GET` | `/api/approvals` | List approvals |
 | `POST` | `/api/approvals/:id/approve` | Approve |
 | `POST` | `/api/approvals/:id/reject` | Reject |
 | **Emails** | | |
@@ -328,6 +344,8 @@ All routes under `/api` require a Bearer token (except health checks and setup s
 | `GET` | `/api/notifications/unread-count` | Unread count |
 | `POST` | `/api/notifications/:id/read` | Mark read |
 | `POST` | `/api/notifications/read-all` | Mark all read |
+| **Search** | | |
+| `GET` | `/api/search/semantic` | Vector similarity search |
 | **Stats** | | |
 | `GET` | `/api/stats` | Dashboard counts |
 | **MCP** | | |
@@ -346,6 +364,124 @@ All routes under `/api` require a Bearer token (except health checks and setup s
 | `operator` | Yes | Yes | No | No |
 | `developer` | Yes | Yes | Yes | Yes |
 | `auditor` | Yes (audit-scoped) | No | No | No |
+
+---
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | (SQLite mode if unset) |
+| `DB_PATH` | SQLite file path (when no DATABASE_URL) | `./headless-crm.db` |
+| `REDIS_URL` | Redis connection string (optional) | (in-memory fallback) |
+| `JWT_SECRET` | Secret for signing agent JWTs | `change-me-in-production` |
+| `PORT` | API server port | `3001` |
+| `ADMIN_API_KEY` | Admin key for bootstrap provisioning | (none) |
+| `CORS_ORIGINS` | Comma-separated allowed origins | `*` |
+| `RESEND_API_KEY` | Resend API key for emails (optional) | (email disabled) |
+| `EMAIL_FROM` | Sender email address | `crm@headless-crm.dev` |
+| `OPENAI_API_KEY` | OpenAI key for embeddings/vector search (optional) | (vector search disabled) |
+| `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP mode | (none) |
+| `NEXT_PUBLIC_API_URL` | API URL for web dashboard | `http://localhost:3001` |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Monorepo | Turborepo + npm workspaces |
+| API framework | Hono (Node.js + Vercel Functions) |
+| Database | PostgreSQL 16 + pgvector / SQLite (local) |
+| ORM | Drizzle ORM |
+| Event bus | Redis 7 Streams or in-memory fallback |
+| Auth | JWT via jose, RBAC middleware |
+| Validation | Zod |
+| MCP SDK | @modelcontextprotocol/sdk |
+| Web framework | Next.js 16 |
+| UI components | shadcn/ui + Tailwind CSS 4 |
+| Email | Resend |
+| Embeddings | OpenAI text-embedding-3-small + pgvector |
+| Language | TypeScript 5.7 |
+
+---
+
+## Self-Hosting
+
+### Docker Compose (full stack)
+
+```bash
+# Set your secrets
+export JWT_SECRET="your-secure-secret"
+export ADMIN_API_KEY="your-admin-key"
+
+# Start everything (PostgreSQL + API + Dashboard)
+docker compose up -d
+
+# Visit http://localhost:3000 (dashboard) or http://localhost:3001/api/docs (API)
+```
+
+### Docker Compose with Redis
+
+```bash
+docker compose --profile full up -d
+```
+
+### Docker (standalone API)
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t headless-crm .
+docker run -p 3001:3001 \
+  -e DATABASE_URL=postgresql://... \
+  -e JWT_SECRET=your-secret \
+  headless-crm
+```
+
+### Single Binary (no Docker)
+
+```bash
+npm start
+# Or: npx tsx packages/cli/src/index.ts --port 3001 --db-path ./my-crm.db
+```
+
+---
+
+## Development
+
+```bash
+npm run dev          # Start all apps in watch mode
+npm run build        # Build everything
+npm run lint         # Lint all packages
+npm run test         # Run tests
+npm run db:generate  # Generate Drizzle migrations
+npm run db:migrate   # Apply migrations
+npm run db:seed      # Seed demo data
+```
+
+---
+
+## Database Tables
+
+| Table | Description |
+|-------|-------------|
+| `tenants` | Multi-tenant isolation |
+| `agents` | AI agent identities, API keys, roles, metadata |
+| `contacts` | People records with pgvector embeddings |
+| `companies` | Organization records with parent hierarchy |
+| `deals` | Sales opportunities tied to pipelines |
+| `deal_contacts` | Many-to-many deal ↔ contact associations |
+| `pipelines` | Pipeline definitions with JSONB stages |
+| `activities` | Timeline events (calls, emails, meetings, notes, tasks) |
+| `tags` / `record_tags` | Categorization labels |
+| `agent_memories` | Agent-specific persistent memory (pgvector) |
+| `events` | Event sourcing audit trail |
+| `cases` | Support/service cases with status and priority |
+| `webhooks` | Registered webhook endpoints with HMAC secrets |
+| `webhook_deliveries` | Delivery attempts and retry tracking |
+| `custom_field_definitions` | Tenant-specific field definitions per collection |
+| `approvals` | Human approval requests for agent actions |
+| `attachments` | File attachments on any record |
+| `notifications` | System notifications with read/unread state |
 
 ---
 
@@ -387,96 +523,17 @@ curl -X POST http://localhost:3001/api/custom-fields \
 
 Supported types: `text`, `number`, `boolean`, `date`, `select`, `multiselect`, `url`, `email`
 
----
-
-## Configuration
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | (SQLite mode if unset) |
-| `DB_PATH` | SQLite file path (when no DATABASE_URL) | `./headless-crm.db` |
-| `REDIS_URL` | Redis connection string (optional) | (in-memory fallback) |
-| `JWT_SECRET` | Secret for signing agent JWTs | `change-me-in-production` |
-| `PORT` | API server port | `3001` |
-| `ADMIN_API_KEY` | Admin key for bootstrap provisioning | (none) |
-| `CORS_ORIGINS` | Comma-separated allowed origins | `*` |
-| `RESEND_API_KEY` | Resend API key for emails (optional) | (email disabled) |
-| `EMAIL_FROM` | Sender email address | `crm@headless-crm.dev` |
-| `OPENAI_API_KEY` | OpenAI key for embeddings/vector search (optional) | (vector search disabled) |
-| `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP mode | (none) |
-| `NEXT_PUBLIC_API_URL` | API URL for web dashboard | `http://localhost:3001` |
+Custom fields are automatically:
+- Available to agents via the `crm_list_fields` MCP tool
+- Shown in the web dashboard on create/edit forms and detail pages
+- Included in API responses and webhook payloads
+- Schema changes emit events so agents can discover new fields
 
 ---
 
-## Tech Stack
+## Contributing
 
-| Layer | Technology |
-|-------|------------|
-| Monorepo | Turborepo + npm workspaces |
-| API framework | Hono (Node.js + Vercel Functions) |
-| Database | PostgreSQL 16 + pgvector / SQLite (local) |
-| ORM | Drizzle ORM |
-| Event bus | Redis 7 Streams or in-memory fallback |
-| Auth | JWT via jose, RBAC middleware |
-| Validation | Zod |
-| MCP SDK | @modelcontextprotocol/sdk |
-| Web framework | Next.js 16 |
-| UI components | shadcn/ui + Base UI |
-| Styling | Tailwind CSS 4 |
-| Email | Resend |
-| Embeddings | OpenAI text-embedding-3-small + pgvector |
-| Language | TypeScript 5.7 |
-
----
-
-## Self-Hosting
-
-### Docker Compose
-
-```bash
-export JWT_SECRET="your-secure-secret"
-export ADMIN_API_KEY="your-admin-key"
-
-# PostgreSQL only (recommended)
-docker compose up -d
-
-# With Redis (high-throughput event streaming)
-docker compose --profile full up -d
-```
-
-### Docker (standalone)
-
-```bash
-# Build multi-arch image
-docker buildx build --platform linux/amd64,linux/arm64 -t headless-crm .
-
-# Run
-docker run -p 3001:3001 \
-  -e DATABASE_URL=postgresql://... \
-  -e JWT_SECRET=your-secret \
-  headless-crm
-```
-
-### Single Binary (no Docker)
-
-```bash
-npm start
-# Or: npx tsx packages/cli/src/index.ts --port 3001 --db-path ./my-crm.db
-```
-
----
-
-## Development
-
-```bash
-npm run dev          # Start all apps in watch mode
-npm run build        # Build everything
-npm run lint         # Lint all packages
-npm run test         # Run tests
-npm run db:generate  # Generate Drizzle migrations
-npm run db:migrate   # Apply migrations
-npm run db:seed      # Seed demo data
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and PR guidelines.
 
 ---
 
@@ -485,9 +542,3 @@ npm run db:seed      # Seed demo data
 Headless CRM is licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
 Copyright 2026 Humaie.
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and PR guidelines.
