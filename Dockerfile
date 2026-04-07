@@ -19,7 +19,7 @@ RUN npm install
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx tsc --project apps/api/tsconfig.json || true
+RUN npx tsc --project apps/api/tsconfig.json
 
 # Production image
 FROM base AS runner

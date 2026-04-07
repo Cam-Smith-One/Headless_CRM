@@ -15,7 +15,7 @@ env:
 
 jobs:
   ci:
-    name: Build & Lint
+    name: Build, Lint & Test
     runs-on: ubuntu-latest
 
     services:
@@ -65,4 +65,6 @@ jobs:
 
       - name: Lint
         run: npx turbo lint
-        continue-on-error: true
+
+      - name: Test
+        run: npx turbo test

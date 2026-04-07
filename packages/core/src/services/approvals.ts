@@ -52,6 +52,12 @@ export function createApprovalsService(db: any, events: EventEmitter) {
       ctx: CrmContext,
       options?: { status?: string; limit?: number; offset?: number }
     ) {
+      // Proactively expire overdue approvals before any pending query so stale
+      // records never appear as pending to callers.
+      if (!options?.status || options.status === "pending") {
+        await this.getExpired(ctx);
+      }
+
       const limit = options?.limit ?? 50;
       const offset = options?.offset ?? 0;
 

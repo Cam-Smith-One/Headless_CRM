@@ -452,10 +452,25 @@ npm start
 npm run dev          # Start all apps in watch mode
 npm run build        # Build everything
 npm run lint         # Lint all packages
-npm run test         # Run tests
+npm run test         # Run tests (Vitest, packages/core)
 npm run db:generate  # Generate Drizzle migrations
 npm run db:migrate   # Apply migrations
 npm run db:seed      # Seed demo data
+```
+
+### Running tests
+
+Tests live in `packages/core/src/__tests__/` and use [Vitest](https://vitest.dev/). They mock the database layer and focus on service-layer business logic.
+
+```bash
+# Run all tests once
+npm run test -w packages/core
+
+# Watch mode
+npm run test:watch -w packages/core
+
+# With coverage
+npm run test:coverage -w packages/core
 ```
 
 ---
@@ -497,16 +512,26 @@ curl -X POST http://localhost:3001/api/webhooks \
 ```
 
 **Signature verification:**
-```javascript
-import { createHmac } from "crypto";
 
-function verifyWebhook(body, signature, secret) {
-  const expected = createHmac("sha256", secret).update(body).digest("hex");
-  return signature === `sha256=${expected}`;
+Each webhook delivery includes `X-Webhook-Timestamp` and `X-Webhook-Signature` headers. The signature format is `t=<timestamp>,v1=<hex>` where the HMAC input is `<timestamp>.<body>`.
+
+```javascript
+import { createHmac, timingSafeEqual } from "crypto";
+
+function verifyWebhook(rawBody, signatureHeader, secret, timestamp) {
+  const [, v1] = signatureHeader.match(/v1=([0-9a-f]+)/) ?? [];
+  if (!v1) return false;
+  const expected = createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+  // Use constant-time comparison to prevent timing attacks
+  return timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
 }
 ```
 
 Deliveries retry up to 3 times with exponential backoff. Monitor delivery history at `GET /api/webhooks/:id/deliveries`.
+
+Subscribe to `notifications.created` to receive webhook pushes for in-app notifications.
 
 ---
 
@@ -528,6 +553,39 @@ Custom fields are automatically:
 - Shown in the web dashboard on create/edit forms and detail pages
 - Included in API responses and webhook payloads
 - Schema changes emit events so agents can discover new fields
+
+---
+
+## Error Responses
+
+All API errors follow a consistent JSON format:
+
+```json
+{
+  "error": "Human-readable error message"
+}
+```
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `400` | Bad request — validation failure or missing required fields |
+| `401` | Unauthorized — missing, invalid, or expired token |
+| `403` | Forbidden — valid token but insufficient role for this action |
+| `404` | Not found — record does not exist or belongs to another tenant |
+| `409` | Conflict — duplicate record or constraint violation |
+| `429` | Rate limited — 100 req/min (authenticated) or 20 req/min (unauthenticated). Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After` |
+| `500` | Internal server error |
+
+---
+
+## Known Limitations
+
+| Limitation | Details |
+|------------|---------|
+| **File attachment storage** | Attachments are stored as base64-encoded blobs in the database. This works for small files but is not recommended for production workloads with large or frequent uploads. A migration to Vercel Blob or S3-compatible storage is planned. |
+| **No real-time push** | The dashboard polls the API for updates. WebSocket or Server-Sent Events support is not currently implemented. For real-time integrations, use webhooks. |
+| **Dual-database type abstraction** | PostgreSQL and SQLite Drizzle schemas have different TypeScript types. Service layer code branches on `db.type`. A unified abstract schema type is planned. |
+| **Approval expiration is on-read** | Expired approvals are marked as `expired` automatically when a `list` or `getPending` call is made — not via a background job. Approvals will remain as `pending` in the database until next polled. |
 
 ---
 
