@@ -20,13 +20,17 @@ interface PendingInvite {
 }
 
 export default function TeamPage() {
-  const { data: session } = useSession();
-  const user = session?.user as any;
-  const canManage = user?.role === "owner" || user?.role === "admin";
+  const { data: session } = useSession(); // used for current user id comparison
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Derive canManage from the fresh member list (DB-sourced) rather than the
+  // Better Auth session cookie, which can be stale for up to 5 minutes after
+  // a role change (e.g. right after the /setup flow promotes user to owner).
+  const currentMember = members.find((m) => m.id === session?.user?.id);
+  const canManage = currentMember?.role === "owner" || currentMember?.role === "admin";
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");

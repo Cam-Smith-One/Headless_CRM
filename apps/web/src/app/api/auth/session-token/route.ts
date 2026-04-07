@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@headless-crm/auth-web";
 import { createAuthService } from "@headless-crm/auth";
 import { getDb } from "@headless-crm/db";
-import { agents } from "@headless-crm/db";
+import { agents, users } from "@headless-crm/db";
 import { eq, and } from "drizzle-orm";
 
 export const runtime = "nodejs";
@@ -24,20 +24,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
   }
 
-  const { user } = session;
-  if (!user.tenantId) {
+  const db = getDb();
+
+  // Query DB directly — the Better Auth session cookie may be cached for up to
+  // 5 minutes, so user.tenantId from the session can be stale (e.g. right after
+  // invite accept sets tenantId). Always read the fresh user record.
+  const [freshUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  if (!freshUser?.tenantId) {
     return NextResponse.json({ error: "User has no tenant assigned" }, { status: 400 });
   }
 
-  const db = getDb();
   const authService = createAuthService(db);
 
   // Find or create the dashboard agent for this user
-  const dashboardAgentName = `dashboard:${user.id}`;
+  const dashboardAgentName = `dashboard:${freshUser.id}`;
   const [existingAgent] = await db
     .select()
     .from(agents)
-    .where(and(eq(agents.ownerUserId, user.id), eq(agents.tenantId, user.tenantId)))
+    .where(and(eq(agents.ownerUserId, freshUser.id), eq(agents.tenantId, freshUser.tenantId)))
     .limit(1);
 
   let agentId: string;
@@ -49,14 +58,14 @@ export async function GET(request: NextRequest) {
   } else {
     // Provision a new dashboard agent scoped to this user's tenant
     const dashboardRole =
-      user.role === "owner" || user.role === "admin" ? "developer" : "operator";
+      freshUser.role === "owner" || freshUser.role === "admin" ? "developer" : "operator";
 
     // Use admin key bypass — we are already authenticated as a human user
-    const result = await authService.provisionAgent(user.tenantId, {
+    const result = await authService.provisionAgent(freshUser.tenantId, {
       name: dashboardAgentName,
       type: "supervised",
       role: dashboardRole,
-      ownerUserId: user.id,
+      ownerUserId: freshUser.id,
     });
     agentId = result.agent.id;
     agentRole = dashboardRole;
@@ -65,7 +74,7 @@ export async function GET(request: NextRequest) {
   // Issue a fresh 30-day JWT for this agent
   const token = await authService.createToken({
     agentId,
-    tenantId: user.tenantId,
+    tenantId: freshUser.tenantId,
     role: agentRole,
   });
 
