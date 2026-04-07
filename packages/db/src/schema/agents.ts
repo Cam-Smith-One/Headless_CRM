@@ -6,6 +6,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
+import { users } from "./users";
 
 export const agentTypeEnum = pgEnum("agent_type", [
   "autonomous",
@@ -38,7 +39,7 @@ export const agents = pgTable("agents", {
   status: agentStatusEnum("status").notNull().default("active"),
   role: agentRoleEnum("role").notNull().default("operator"),
   apiKey: text("api_key").unique(),
-  ownerUserId: text("owner_user_id"),
+  ownerUserId: text("owner_user_id").references(() => users.id, { onDelete: "set null" }),
   policyId: text("policy_id"),
   metadata: jsonb("metadata").default({}),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),

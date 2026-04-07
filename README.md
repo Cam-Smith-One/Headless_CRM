@@ -203,6 +203,7 @@ headless-crm/
 │   │                   activities, webhooks, custom fields, approvals, emails,
 │   │                   embeddings, notifications, attachments)
 │   ├── auth/           Agent JWT auth, RBAC, agent lifecycle
+│   ├── auth-web/       Human user auth (Better Auth, cookie sessions, OAuth)
 │   ├── events/         Event bus (Redis Streams or in-memory fallback)
 │   ├── mcp-server/     MCP server with 18+ tools
 │   └── cli/            CLI entry point (npx headless-crm start)
@@ -367,6 +368,64 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 
 ---
 
+## Team Access & Human Authentication
+
+The dashboard supports multiple human team members via [Better Auth](https://better-auth.com) — self-hostable, Drizzle-native HttpOnly cookie sessions.
+
+### First Run: Setup Wizard
+
+On first visit, you'll be redirected to `/setup` to create the owner account and workspace:
+
+1. Enter your name, email, password, and workspace name
+2. Your account is created with the `owner` role
+3. You're signed in and redirected to the dashboard
+
+If users already exist, `/setup` returns `403`.
+
+### Login
+
+Visit `/login` to sign in with email and password. Optional Google/GitHub OAuth buttons appear when `NEXT_PUBLIC_OAUTH_ENABLED=true`.
+
+### Inviting Team Members
+
+From **Settings → Team**, owners and admins can invite members:
+
+- Click **Invite Member**, enter email and role (`admin` or `member`)
+- **Self-hosted (no SMTP):** copy the invite link from the modal and share it manually — zero external dependencies
+- **With Resend configured:** invite email is sent automatically
+
+Invite links expire after 48 hours. Pending invites are listed in the Team page until accepted or expired.
+
+### Human Roles
+
+| Role | Dashboard access | Can invite |
+|------|-----------------|------------|
+| `owner` | Full — including all settings | Yes |
+| `admin` | Full — including agent provisioning | Yes |
+| `member` | Read-only — cannot manage agents or settings | No |
+
+### Human Auth Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `BETTER_AUTH_SECRET` | 32+ char signing secret for sessions | Yes |
+| `BETTER_AUTH_URL` | Canonical URL (e.g. `https://app.example.com`) | Vercel only |
+| `NEXT_PUBLIC_APP_URL` | Public URL for invite links | Recommended |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Enable Google OAuth | No |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Enable GitHub OAuth | No |
+| `NEXT_PUBLIC_OAUTH_ENABLED` | Show OAuth buttons on login page | No |
+
+Generate a secure secret:
+```bash
+openssl rand -base64 32
+```
+
+### How It Works
+
+Human sessions (cookie-based) are separate from agent JWTs. On login, the dashboard exchanges the session cookie for a CRM agent token stored in `localStorage` as `hcrm_token`. This bridges the human identity to the existing Hono API with no changes to the API layer.
+
+---
+
 ## Configuration
 
 | Variable | Description | Default |
@@ -383,6 +442,9 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `OPENAI_API_KEY` | OpenAI key for embeddings/vector search (optional) | (vector search disabled) |
 | `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP mode | (none) |
 | `NEXT_PUBLIC_API_URL` | API URL for web dashboard | `http://localhost:3001` |
+| `BETTER_AUTH_SECRET` | 32+ char secret for human session signing | (required for dashboard login) |
+| `BETTER_AUTH_URL` | Canonical deployment URL (required on Vercel) | `http://localhost:3000` |
+| `NEXT_PUBLIC_APP_URL` | Public URL used in invite links | `http://localhost:3000` |
 
 ---
 
@@ -497,6 +559,11 @@ npm run test:coverage -w packages/core
 | `approvals` | Human approval requests for agent actions |
 | `attachments` | File attachments on any record |
 | `notifications` | System notifications with read/unread state |
+| `users` | Human user accounts (name, email, role, tenantId) |
+| `sessions` | Better Auth HttpOnly cookie sessions |
+| `accounts` | OAuth provider accounts + bcrypt password hashes |
+| `verifications` | Email verification tokens |
+| `invites` | Team invite tokens with expiry and accept status |
 
 ---
 

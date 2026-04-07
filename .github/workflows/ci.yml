@@ -37,6 +37,8 @@ jobs:
       DATABASE_URL: postgresql://headless:headless@localhost:5433/headless_crm
       JWT_SECRET: ci-test-secret
       ADMIN_API_KEY: ci-test-admin-key
+      BETTER_AUTH_SECRET: ci-test-better-auth-secret-32chars!!
+      BETTER_AUTH_URL: http://localhost:3000
       PORT: "3001"
 
     steps:
