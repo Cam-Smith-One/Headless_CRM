@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { apiFetch } from "@/lib/api";
+import { useSession, signOut } from "@headless-crm/auth-web/client";
 
 const navItems = [
   {
@@ -131,6 +132,18 @@ const bottomItems = [
         <rect x="2" y="8" width="8" height="3" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <path d="M13 9.5h-1M14 9.5h-0.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         <path d="M12 12.5l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "Team",
+    href: "/settings/team",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="5.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="11" cy="5" r="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M1 14c0-2.5 2-4.5 4.5-4.5S10 11.5 10 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M12 10c1.5.3 3 1.5 3 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -308,8 +321,17 @@ function SearchBox() {
 
 export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session } = useSession();
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  async function handleSignOut() {
+    await signOut();
+    localStorage.removeItem("hcrm_token");
+    localStorage.removeItem("hcrm_admin_key");
+    router.push("/login");
+  }
 
   useEffect(() => {
     function fetchUnread() {
@@ -442,13 +464,19 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
         </div>
 
         <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-muted-foreground">
-            A
+          {/* Avatar — first letter of name, or "?" if no session */}
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-muted-foreground">
+            {session?.user?.name?.[0]?.toUpperCase() ?? "?"}
           </div>
-          <span className="text-xs text-muted-foreground truncate">
-            Admin
-          </span>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-sidebar-foreground">
+              {session?.user?.name ?? "Loading…"}
+            </p>
+            <p className="truncate text-[10px] text-muted-foreground">
+              {session?.user?.email ?? ""}
+            </p>
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-1">
             <Link href="/notifications" className="relative p-1 rounded-md hover:bg-sidebar-accent/50 transition-colors text-muted-foreground hover:text-sidebar-foreground" title="Notifications">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M8 1.5a4.5 4.5 0 00-4.5 4.5c0 2.5-1.5 4-1.5 4h12s-1.5-1.5-1.5-4A4.5 4.5 0 008 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -461,7 +489,19 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
               )}
             </Link>
             <ThemeToggle />
-            <div className="flex h-2 w-2 rounded-full bg-green-500" />
+            {/* Sign out */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              title="Sign out"
+              className="p-1 rounded-md text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M10 11l3-3-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M13 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

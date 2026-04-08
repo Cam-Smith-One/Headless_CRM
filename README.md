@@ -203,6 +203,7 @@ headless-crm/
 │   │                   activities, webhooks, custom fields, approvals, emails,
 │   │                   embeddings, notifications, attachments)
 │   ├── auth/           Agent JWT auth, RBAC, agent lifecycle
+│   ├── auth-web/       Human user auth (Better Auth, cookie sessions, OAuth)
 │   ├── events/         Event bus (Redis Streams or in-memory fallback)
 │   ├── mcp-server/     MCP server with 18+ tools
 │   └── cli/            CLI entry point (npx headless-crm start)
@@ -367,6 +368,64 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 
 ---
 
+## Team Access & Human Authentication
+
+The dashboard supports multiple human team members via [Better Auth](https://better-auth.com) — self-hostable, Drizzle-native HttpOnly cookie sessions.
+
+### First Run: Setup Wizard
+
+On first visit, you'll be redirected to `/setup` to create the owner account and workspace:
+
+1. Enter your name, email, password, and workspace name
+2. Your account is created with the `owner` role
+3. You're signed in and redirected to the dashboard
+
+If users already exist, `/setup` returns `403`.
+
+### Login
+
+Visit `/login` to sign in with email and password. Optional Google/GitHub OAuth buttons appear when `NEXT_PUBLIC_OAUTH_ENABLED=true`.
+
+### Inviting Team Members
+
+From **Settings → Team**, owners and admins can invite members:
+
+- Click **Invite Member**, enter email and role (`admin` or `member`)
+- **Self-hosted (no SMTP):** copy the invite link from the modal and share it manually — zero external dependencies
+- **With Resend configured:** invite email is sent automatically
+
+Invite links expire after 48 hours. Pending invites are listed in the Team page until accepted or expired.
+
+### Human Roles
+
+| Role | Dashboard access | Can invite |
+|------|-----------------|------------|
+| `owner` | Full — including all settings | Yes |
+| `admin` | Full — including agent provisioning | Yes |
+| `member` | Read-only — cannot manage agents or settings | No |
+
+### Human Auth Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `BETTER_AUTH_SECRET` | 32+ char signing secret for sessions | Yes |
+| `BETTER_AUTH_URL` | Canonical URL (e.g. `https://app.example.com`) | Vercel only |
+| `NEXT_PUBLIC_APP_URL` | Public URL for invite links | Recommended |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Enable Google OAuth | No |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Enable GitHub OAuth | No |
+| `NEXT_PUBLIC_OAUTH_ENABLED` | Show OAuth buttons on login page | No |
+
+Generate a secure secret:
+```bash
+openssl rand -base64 32
+```
+
+### How It Works
+
+Human sessions (cookie-based) are separate from agent JWTs. On login, the dashboard exchanges the session cookie for a CRM agent token stored in `localStorage` as `hcrm_token`. This bridges the human identity to the existing Hono API with no changes to the API layer.
+
+---
+
 ## Configuration
 
 | Variable | Description | Default |
@@ -383,6 +442,9 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `OPENAI_API_KEY` | OpenAI key for embeddings/vector search (optional) | (vector search disabled) |
 | `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP mode | (none) |
 | `NEXT_PUBLIC_API_URL` | API URL for web dashboard | `http://localhost:3001` |
+| `BETTER_AUTH_SECRET` | 32+ char secret for human session signing | (required for dashboard login) |
+| `BETTER_AUTH_URL` | Canonical deployment URL (required on Vercel) | `http://localhost:3000` |
+| `NEXT_PUBLIC_APP_URL` | Public URL used in invite links | `http://localhost:3000` |
 
 ---
 
@@ -452,10 +514,25 @@ npm start
 npm run dev          # Start all apps in watch mode
 npm run build        # Build everything
 npm run lint         # Lint all packages
-npm run test         # Run tests
+npm run test         # Run tests (Vitest, packages/core)
 npm run db:generate  # Generate Drizzle migrations
 npm run db:migrate   # Apply migrations
 npm run db:seed      # Seed demo data
+```
+
+### Running tests
+
+Tests live in `packages/core/src/__tests__/` and use [Vitest](https://vitest.dev/). They mock the database layer and focus on service-layer business logic.
+
+```bash
+# Run all tests once
+npm run test -w packages/core
+
+# Watch mode
+npm run test:watch -w packages/core
+
+# With coverage
+npm run test:coverage -w packages/core
 ```
 
 ---
@@ -482,6 +559,11 @@ npm run db:seed      # Seed demo data
 | `approvals` | Human approval requests for agent actions |
 | `attachments` | File attachments on any record |
 | `notifications` | System notifications with read/unread state |
+| `users` | Human user accounts (name, email, role, tenantId) |
+| `sessions` | Better Auth HttpOnly cookie sessions |
+| `accounts` | OAuth provider accounts + bcrypt password hashes |
+| `verifications` | Email verification tokens |
+| `invites` | Team invite tokens with expiry and accept status |
 
 ---
 
@@ -497,16 +579,26 @@ curl -X POST http://localhost:3001/api/webhooks \
 ```
 
 **Signature verification:**
-```javascript
-import { createHmac } from "crypto";
 
-function verifyWebhook(body, signature, secret) {
-  const expected = createHmac("sha256", secret).update(body).digest("hex");
-  return signature === `sha256=${expected}`;
+Each webhook delivery includes `X-Webhook-Timestamp` and `X-Webhook-Signature` headers. The signature format is `t=<timestamp>,v1=<hex>` where the HMAC input is `<timestamp>.<body>`.
+
+```javascript
+import { createHmac, timingSafeEqual } from "crypto";
+
+function verifyWebhook(rawBody, signatureHeader, secret, timestamp) {
+  const [, v1] = signatureHeader.match(/v1=([0-9a-f]+)/) ?? [];
+  if (!v1) return false;
+  const expected = createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+  // Use constant-time comparison to prevent timing attacks
+  return timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
 }
 ```
 
 Deliveries retry up to 3 times with exponential backoff. Monitor delivery history at `GET /api/webhooks/:id/deliveries`.
+
+Subscribe to `notifications.created` to receive webhook pushes for in-app notifications.
 
 ---
 
@@ -528,6 +620,39 @@ Custom fields are automatically:
 - Shown in the web dashboard on create/edit forms and detail pages
 - Included in API responses and webhook payloads
 - Schema changes emit events so agents can discover new fields
+
+---
+
+## Error Responses
+
+All API errors follow a consistent JSON format:
+
+```json
+{
+  "error": "Human-readable error message"
+}
+```
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `400` | Bad request — validation failure or missing required fields |
+| `401` | Unauthorized — missing, invalid, or expired token |
+| `403` | Forbidden — valid token but insufficient role for this action |
+| `404` | Not found — record does not exist or belongs to another tenant |
+| `409` | Conflict — duplicate record or constraint violation |
+| `429` | Rate limited — 100 req/min (authenticated) or 20 req/min (unauthenticated). Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After` |
+| `500` | Internal server error |
+
+---
+
+## Known Limitations
+
+| Limitation | Details |
+|------------|---------|
+| **File attachment storage** | Attachments are stored as base64-encoded blobs in the database. This works for small files but is not recommended for production workloads with large or frequent uploads. A migration to Vercel Blob or S3-compatible storage is planned. |
+| **No real-time push** | The dashboard polls the API for updates. WebSocket or Server-Sent Events support is not currently implemented. For real-time integrations, use webhooks. |
+| **Dual-database type abstraction** | PostgreSQL and SQLite Drizzle schemas have different TypeScript types. Service layer code branches on `db.type`. A unified abstract schema type is planned. |
+| **Approval expiration is on-read** | Expired approvals are marked as `expired` automatically when a `list` or `getPending` call is made — not via a background job. Approvals will remain as `pending` in the database until next polled. |
 
 ---
 
