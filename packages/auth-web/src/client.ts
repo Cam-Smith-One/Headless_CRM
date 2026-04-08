@@ -7,20 +7,19 @@ import { createAuthClient } from "better-auth/react";
  * Import hooks and actions from this file in Client Components.
  *
  * Usage:
- *   import { useSession, authClient } from "@headless-crm/auth-web/client";
+ *   import { useSession, signIn, signOut, signUp } from "@headless-crm/auth-web/client";
  *   const { data: session } = useSession();
- *   await authClient.signOut();
  */
-export const authClient = createAuthClient({
+const _client = createAuthClient({
   baseURL:
-    typeof window !== "undefined"
-      ? window.location.origin
+    typeof globalThis.window !== "undefined"
+      ? globalThis.window.location.origin
       : (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 });
 
-export const {
-  useSession,
-  signIn,
-  signOut,
-  signUp,
-} = authClient;
+// Export individual methods — avoids exporting the client instance directly,
+// which has a complex inferred type that references better-auth internals.
+export const useSession = _client.useSession;
+export const signIn = _client.signIn;
+export const signOut = _client.signOut;
+export const signUp = _client.signUp;
