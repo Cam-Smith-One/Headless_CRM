@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual, createHash } from "crypto";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -149,19 +149,16 @@ export function createApp() {
       return;
     }
 
-    // Try to extract agentId from JWT for authenticated keying
+    // Key authenticated requests by a hash of the full token (unique per credential).
+    // Keying by token tail (slice(-16)) was wrong — JWT signatures share common suffixes.
     let key: string;
     let limit: number;
     const authHeader = c.req.header("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
-      try {
-        const token = authHeader.slice(7);
-        key = `agent:${token.slice(-16)}`;
-        limit = AUTHENTICATED_LIMIT;
-      } catch {
-        key = `ip:${c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"}`;
-        limit = UNAUTHENTICATED_LIMIT;
-      }
+      const token = authHeader.slice(7);
+      const tokenHash = createHash("sha256").update(token).digest("hex").slice(0, 32);
+      key = `agent:${tokenHash}`;
+      limit = AUTHENTICATED_LIMIT;
     } else {
       key = `ip:${c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"}`;
       limit = UNAUTHENTICATED_LIMIT;

@@ -1,0 +1,21 @@
+{
+  "name": "@headless-crm/auth-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@headless-crm/db": "*",
+    "better-auth": "^1.2.0",
+    "drizzle-orm": "^0.39.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

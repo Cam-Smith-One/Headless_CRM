@@ -131,7 +131,7 @@ function createPersistingEmitter(
 
 export function createCRM(db: any, events: EventEmitter) {
   const webhooksServiceInstance = createWebhooksService(db, events);
-  const notificationsServiceInstance = createNotificationsService(db);
+  const notificationsServiceInstance = createNotificationsService(db, webhooksServiceInstance);
   const persistingEvents = createPersistingEmitter(db, events, webhooksServiceInstance, notificationsServiceInstance);
   const cfService = createCustomFieldsService(db, persistingEvents);
   const cfValidator = cfService.validate.bind(cfService);

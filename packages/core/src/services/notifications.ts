@@ -12,7 +12,13 @@ export interface CreateNotificationInput {
   agentId?: string;
 }
 
-export function createNotificationsService(db: any) {
+/** Minimal interface for webhook fan-out — avoids circular imports */
+interface WebhookDelivery {
+  getMatchingWebhooks(tenantId: string, eventType: string): Promise<any[]>;
+  deliver(webhook: any, event: any): Promise<any>;
+}
+
+export function createNotificationsService(db: any, webhooks?: WebhookDelivery) {
   return {
     async create(ctx: CrmContext, data: CreateNotificationInput) {
       const id = nanoid();
@@ -29,6 +35,27 @@ export function createNotificationsService(db: any) {
           agentId: data.agentId ?? ctx.agentId,
         })
         .returning();
+
+      // Fan out to webhooks subscribed to notifications.created (best-effort)
+      if (webhooks) {
+        try {
+          const matching = await webhooks.getMatchingWebhooks(ctx.tenantId, "notifications.created");
+          if (matching.length > 0) {
+            const payload = {
+              eventType: "notifications.created",
+              tenantId: ctx.tenantId,
+              recordType: "notifications",
+              recordId: id,
+              agentId: data.agentId ?? ctx.agentId,
+              data: record,
+            };
+            await Promise.allSettled(matching.map((wh) => webhooks.deliver(wh, payload)));
+          }
+        } catch {
+          // Webhook fan-out must never block notification creation
+        }
+      }
+
       return record;
     },
 

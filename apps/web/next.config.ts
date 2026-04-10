@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     "@headless-crm/core",
     "@headless-crm/db",
     "@headless-crm/auth",
+    "@headless-crm/auth-web",
     "@headless-crm/events",
     "@headless-crm/mcp-server",
   ],

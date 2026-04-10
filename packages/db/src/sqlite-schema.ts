@@ -57,7 +57,7 @@ export const agents = sqliteTable("agents", {
   status: text("status").notNull().default("active"),
   role: text("role").notNull().default("operator"),
   apiKey: text("api_key").unique(),
-  ownerUserId: text("owner_user_id"),
+  ownerUserId: text("owner_user_id").references(() => users.id),
   policyId: text("policy_id"),
   metadata: text("metadata", { mode: "json" }).default("{}"),
   lastActiveAt: text("last_active_at"),
@@ -582,3 +582,67 @@ export const agentMemories = sqliteTable(
     ),
   ]
 );
+
+// ---------------------------------------------------------------------------
+// Human Users (Better Auth tables)
+// ---------------------------------------------------------------------------
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
+  image: text("image"),
+  role: text("role").notNull().default("member"),
+  tenantId: text("tenant_id").references(() => tenants.id),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(),
+  expiresAt: text("expires_at").notNull(),
+  token: text("token").notNull().unique(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: text("user_id").notNull().references(() => users.id),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
+export const accounts = sqliteTable("accounts", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: text("user_id").notNull().references(() => users.id),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: text("access_token_expires_at"),
+  refreshTokenExpiresAt: text("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
+export const verifications = sqliteTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
+export const invites = sqliteTable("invites", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("member"),
+  tenantId: text("tenant_id").notNull().references(() => tenants.id),
+  invitedByUserId: text("invited_by_user_id").notNull().references(() => users.id),
+  token: text("token").notNull().unique(),
+  expiresAt: text("expires_at").notNull(),
+  acceptedAt: text("accepted_at"),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});
