@@ -47,18 +47,22 @@ async function seed() {
     }).onConflictDoNothing();
   }
 
-  // Pipeline
+  // Pipeline — Sales pipeline for One Zero Ten
   const pipelineId = `pipe_${nanoid(8)}`;
   await db.insert(schema.pipelines).values({
     id: pipelineId,
     tenantId,
-    name: "Default Pipeline",
+    name: "Sales Pipeline",
     stages: [
-      { name: "Prospecting", order: 1, probability: 10 },
-      { name: "Qualification", order: 2, probability: 25 },
-      { name: "Proposal", order: 3, probability: 50 },
-      { name: "Negotiation", order: 4, probability: 75 },
-      { name: "Closed Won", order: 5, probability: 100 },
+      { name: "Lead", order: 1, probability: 5 },
+      { name: "Qualified", order: 2, probability: 15 },
+      { name: "Discovery", order: 3, probability: 25 },
+      { name: "Proposal", order: 4, probability: 50 },
+      { name: "Negotiation", order: 5, probability: 70 },
+      { name: "Won", order: 6, probability: 100 },
+      { name: "Onboarding", order: 7, probability: 100 },
+      { name: "Active", order: 8, probability: 100 },
+      { name: "Churned", order: 9, probability: 0 },
     ],
   }).onConflictDoNothing();
 
@@ -107,11 +111,11 @@ async function seed() {
 
   // Deals
   const dealData = [
-    { name: "TechFlow Platform License", value: "48000", stage: "Prospecting", companyIdx: 0 },
-    { name: "Nexus AI Integration", value: "24000", stage: "Prospecting", companyIdx: 1 },
+    { name: "TechFlow Platform License", value: "48000", stage: "Lead", companyIdx: 0 },
+    { name: "Nexus AI Integration", value: "24000", stage: "Lead", companyIdx: 1 },
     { name: "CloudBase Migration", value: "240000", stage: "Proposal", companyIdx: 2 },
-    { name: "DataSynth Enterprise", value: "120000", stage: "Qualification", companyIdx: 3 },
-    { name: "ScaleOps Annual", value: "36000", stage: "Prospecting", companyIdx: 4 },
+    { name: "DataSynth Enterprise", value: "120000", stage: "Qualified", companyIdx: 3 },
+    { name: "ScaleOps Annual", value: "36000", stage: "Discovery", companyIdx: 4 },
   ];
 
   for (const deal of dealData) {
