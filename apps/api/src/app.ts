@@ -800,6 +800,53 @@ export function createApp() {
     }
   });
 
+  // Pipeline Triggers
+  api.get("/pipeline-triggers", async (c) => {
+    try {
+      const { pipelineId } = c.req.query();
+      const records = await getCRM().pipelineTriggers.list(c.get("ctx"), pipelineId);
+      return c.json(records);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  api.post("/pipeline-triggers", requireWrite, async (c) => {
+    try {
+      const record = await getCRM().pipelineTriggers.create(c.get("ctx"), await c.req.json());
+      return c.json(record, 201);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  api.get("/pipeline-triggers/:id", async (c) => {
+    try {
+      const record = await getCRM().pipelineTriggers.getById(c.get("ctx"), c.req.param("id"));
+      return record ? c.json(record) : c.json({ error: "Not found" }, 404);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  api.patch("/pipeline-triggers/:id", requireWrite, async (c) => {
+    try {
+      const record = await getCRM().pipelineTriggers.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      return c.json(record);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  api.delete("/pipeline-triggers/:id", requireDelete, async (c) => {
+    try {
+      const record = await getCRM().pipelineTriggers.delete(c.get("ctx"), c.req.param("id"));
+      return c.json(record);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // Webhooks
   api.get("/webhooks", async (c) => {
     try {
@@ -1260,6 +1307,103 @@ export function createApp() {
   });
 
   app.route("/api", api);
+
+  // ---------------------------------------------------------------------------
+  // Resend email engagement webhook (public, HMAC-verified)
+  // Resend sends POST to this endpoint with events like email.opened,
+  // email.clicked, email.delivered. We look up the matching deal via
+  // the resendId stored in activity metadata and fire pipeline triggers.
+  // ---------------------------------------------------------------------------
+  app.post("/webhooks/resend", async (c) => {
+    try {
+      const signingSecret = process.env.RESEND_WEBHOOK_SECRET;
+      if (signingSecret) {
+        // Verify Resend HMAC-SHA256 signature
+        const signature = c.req.header("svix-signature") ?? c.req.header("resend-signature");
+        const rawBody = await c.req.text();
+        if (!signature) {
+          return c.json({ error: "Missing signature" }, 401);
+        }
+        const hmac = createHash("sha256")
+          .update(signingSecret)
+          .update(rawBody)
+          .digest("hex");
+        const expectedSig = `v1,${hmac}`;
+        // svix sends multiple signatures in "v1,xxx v1,yyy" format; check any match
+        const sigs = signature.split(" ");
+        const valid = sigs.some((s) => {
+          try {
+            return timingSafeEqual(Buffer.from(s), Buffer.from(expectedSig));
+          } catch {
+            return false;
+          }
+        });
+        if (!valid) {
+          return c.json({ error: "Invalid signature" }, 401);
+        }
+        // Parse body we already read
+        const body = JSON.parse(rawBody);
+        return handleResendEvent(c, body);
+      } else {
+        // No secret configured — accept the event (dev/testing)
+        const body = await c.req.json();
+        return handleResendEvent(c, body);
+      }
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  async function handleResendEvent(c: any, body: any) {
+    // Resend webhook event shape: { type: "email.opened", data: { email_id: "...", ... } }
+    const eventType: string = body.type ?? body.event ?? "";
+    const resendId: string = body.data?.email_id ?? body.data?.id ?? "";
+
+    if (!eventType || !resendId) {
+      return c.json({ received: true, skipped: "missing type or email_id" });
+    }
+
+    // Map Resend event types to our trigger event names
+    const triggerEventMap: Record<string, string> = {
+      "email.opened": "email.opened",
+      "email.clicked": "email.clicked",
+      "email.delivered": "email.delivered",
+      "email.bounced": "email.bounced",
+    };
+    const triggerEvent = triggerEventMap[eventType];
+    if (!triggerEvent) {
+      return c.json({ received: true, skipped: `unhandled event type: ${eventType}` });
+    }
+
+    // Find activities with this resendId across all tenants
+    // (activities are scoped per tenant; we need to check all tenants
+    //  because webhook doesn't carry tenant info)
+    const allActivities = await getDb()
+      .select()
+      .from(schema.activities);
+    const matched = allActivities.filter(
+      (a: any) =>
+        a.dealId &&
+        a.metadata &&
+        typeof a.metadata === "object" &&
+        (a.metadata as Record<string, unknown>).resendId === resendId
+    );
+
+    const advanced: Array<{ dealId: string; tenantId: string; fromStage: string; toStage: string }> = [];
+    for (const activity of matched) {
+      if (!activity.dealId) continue;
+      const ctx = { tenantId: activity.tenantId, agentId: null, userId: null };
+      const result = await getCRM().pipelineTriggers.fireForDeal(ctx, activity.dealId, triggerEvent);
+      if (result) advanced.push({ ...result, tenantId: activity.tenantId });
+    }
+
+    return c.json({ received: true, triggerEvent, resendId, advanced });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pipeline triggers CRUD (authenticated)
+  // ---------------------------------------------------------------------------
+  // Mounted under /api so they get the auth middleware
 
   // MCP Streamable HTTP transport (Web Standard API)
   // Each session gets its own transport + MCP server scoped to the authenticated agent

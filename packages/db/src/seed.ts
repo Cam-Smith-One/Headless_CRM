@@ -66,6 +66,28 @@ async function seed() {
     ],
   }).onConflictDoNothing();
 
+  // Pipeline auto-advance triggers for email engagement
+  // email.opened → Lead → Qualified
+  // email.clicked → Qualified → Discovery (stronger signal)
+  // email.replied → any stage → Discovery (reply = high intent)
+  const triggerDefs = [
+    { triggerEvent: "email.opened", fromStage: "Lead", toStage: "Qualified" },
+    { triggerEvent: "email.clicked", fromStage: "Lead", toStage: "Qualified" },
+    { triggerEvent: "email.clicked", fromStage: "Qualified", toStage: "Discovery" },
+    { triggerEvent: "email.replied", fromStage: null, toStage: "Discovery" },
+  ];
+  for (const td of triggerDefs) {
+    await db.insert(schema.pipelineTriggers).values({
+      id: `trig_${nanoid(8)}`,
+      tenantId,
+      pipelineId,
+      triggerEvent: td.triggerEvent,
+      fromStage: td.fromStage,
+      toStage: td.toStage,
+      active: true,
+    }).onConflictDoNothing();
+  }
+
   // Companies
   const companies = [
     { name: "TechFlow Inc", domain: "techflow.io", industry: "SaaS", size: "51-200" },

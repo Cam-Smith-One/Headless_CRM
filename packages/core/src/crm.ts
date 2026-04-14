@@ -9,6 +9,7 @@ import { createCustomFieldsService } from "./services/custom-fields";
 import { createEmbeddingsService } from "./services/embeddings";
 import { createApprovalsService } from "./services/approvals";
 import { createPipelinesService } from "./services/pipelines";
+import { createPipelineTriggersService } from "./services/pipeline-triggers";
 import { createNotificationsService } from "./services/notifications";
 import type { EventEmitter } from "./types";
 import { crmEvents } from "@headless-crm/db";
@@ -148,6 +149,7 @@ export function createCRM(db: any, events: EventEmitter) {
     embeddings: embeddingsService,
     approvals: createApprovalsService(db, persistingEvents),
     pipelines: createPipelinesService(db, persistingEvents),
+    pipelineTriggers: createPipelineTriggersService(db, persistingEvents),
     notifications: notificationsServiceInstance,
   };
 }

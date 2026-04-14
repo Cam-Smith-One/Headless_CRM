@@ -59,3 +59,10 @@ export {
   type CreateApprovalInput,
   type ApprovalsService,
 } from "./services/approvals";
+export {
+  createPipelineTriggersService,
+  createTriggerSchema,
+  updateTriggerSchema,
+  type CreateTriggerInput,
+  type UpdateTriggerInput,
+} from "./services/pipeline-triggers";
