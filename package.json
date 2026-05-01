@@ -24,6 +24,10 @@
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },
+  "optionalDependencies": {
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",
+    "@tailwindcss/oxide-linux-x64-musl": "4.2.1"
+  },
   "license": "AGPL-3.0",
   "description": "The open-source CRM built for AI agents. MCP-native, API-first, self-hostable."
 }
