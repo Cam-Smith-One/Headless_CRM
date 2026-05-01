@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Anchor workspace root to repo root so Next.js doesn't walk up into ~/
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   // Transpile monorepo packages so Next.js can bundle them
   transpilePackages: [
     "@headless-crm/api",

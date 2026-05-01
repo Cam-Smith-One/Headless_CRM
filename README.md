@@ -12,6 +12,8 @@
 [![CI](https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/Cam-Smith-One/Headless_CRM/actions)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
 
+> **Want it fully managed?** Skip the setup — [get the hosted version →](https://humaie.com) _(zero ops, auto-updates, Humaie support)_
+
 ---
 
 ## Why Headless CRM?
@@ -46,7 +48,9 @@ Result: Contact created (id: c_xK9mPq2r)
 
 ## Quick Start
 
-### Option 1: One-Command Setup (recommended)
+> **Builder / agent framework user?** Use [Option 2 (SQLite)](#option-2-sqlite-no-docker-needed) — no Docker, no external DB, runs in under a minute. Works great with Claude, OpenClaw, Hermes, and any MCP client.
+
+### Option 1: One-Command Setup (PostgreSQL)
 
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
@@ -64,12 +68,16 @@ npm run dev    # API on :3001, Dashboard on :3000
 
 ### Option 2: SQLite (no Docker needed)
 
+**Simplest for local dev and agent integrations.** No external dependencies — just Node.js.
+
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
 cd Headless_CRM
 ./scripts/setup-sqlite.sh
 npm start      # API on :3001 with SQLite
 ```
+
+> Note: SQLite mode disables pgvector semantic search. All other features — MCP tools, REST API, webhooks, agent auth — work fully.
 
 ### Option 3: Docker Compose (full stack)
 
