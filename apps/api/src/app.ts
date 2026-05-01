@@ -1392,7 +1392,7 @@ export function createApp() {
     const advanced: Array<{ dealId: string; tenantId: string; fromStage: string; toStage: string }> = [];
     for (const activity of matched) {
       if (!activity.dealId) continue;
-      const ctx = { tenantId: activity.tenantId, agentId: null, userId: null };
+      const ctx = { tenantId: activity.tenantId, agentId: undefined, userId: undefined };
       const result = await getCRM().pipelineTriggers.fireForDeal(ctx, activity.dealId, triggerEvent);
       if (result) advanced.push({ ...result, tenantId: activity.tenantId });
     }
