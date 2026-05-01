@@ -128,7 +128,7 @@ export default function TeamPage() {
                   <p className="truncate text-[10px] text-muted-foreground">{m.email}</p>
                 </div>
                 {roleBadge(m.role)}
-                {m.id === user?.id && (
+                {m.id === session?.user?.id && (
                   <span className="text-[10px] text-muted-foreground">(you)</span>
                 )}
               </div>

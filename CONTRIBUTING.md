@@ -5,15 +5,17 @@ Thank you for your interest in contributing! This guide will help you get set up
 ## Prerequisites
 
 - Node.js 22+
-- Docker (for PostgreSQL + Redis)
+- Docker (for PostgreSQL + Redis, optional — see SQLite option below)
 - npm 10+
 
 ## Setup
 
+### Option A: PostgreSQL (full features)
+
 ```bash
 # Clone the repo
-git clone https://github.com/humaie/headless-crm.git
-cd headless-crm
+git clone https://github.com/Cam-Smith-One/Headless_CRM.git
+cd Headless_CRM
 
 # Install dependencies
 npm install
@@ -35,21 +37,32 @@ npm run db:seed
 npm run dev
 ```
 
+### Option B: SQLite (no Docker needed)
+
+```bash
+git clone https://github.com/Cam-Smith-One/Headless_CRM.git
+cd Headless_CRM
+./scripts/setup-sqlite.sh
+npm run dev
+```
+
 The API runs on `http://localhost:3001` and the web UI on `http://localhost:3000`.
 
 ## Project Structure
 
 ```
+apps/
+  api/         Hono REST API server (Hono + MCP HTTP transport)
+  web/         Next.js dashboard + Vercel API proxy
+
 packages/
-  db/          Drizzle ORM schemas, migrations, seed data
+  db/          Drizzle ORM schemas, migrations, seed data (PostgreSQL + SQLite)
   core/        CRM business logic (services, validation, event emission)
   auth/        Agent identity, JWT tokens, RBAC
-  events/      Redis Streams event bus
+  auth-web/    Human user auth (Better Auth, cookie sessions, OAuth)
+  events/      Redis Streams or in-memory event bus
   mcp-server/  MCP tools and server (stdio + HTTP transport)
-
-apps/
-  api/         Hono REST API server
-  web/         Next.js monitoring dashboard
+  cli/         CLI entry point (npx headless-crm start)
 ```
 
 ## How to Add a New Entity
