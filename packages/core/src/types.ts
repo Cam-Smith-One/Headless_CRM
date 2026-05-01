@@ -27,7 +27,7 @@ export interface QueryOptions {
 
 export interface CrmEvent {
   eventType: string;
-  recordType: CollectionName;
+  recordType: string;
   recordId: string;
   agentId?: string;
   userId?: string;
