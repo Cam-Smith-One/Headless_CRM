@@ -37,26 +37,29 @@ npm run db:seed
 npm run dev
 ```
 
-### Option B: SQLite (no Docker needed)
+### Option B: SQLite (data-model exploration only — does NOT run the app)
+
+> ⚠️ The runtime API requires Postgres. SQLite is supported only for
+> migrations + seed (so you can inspect the data model offline). Running
+> `npm run dev` against a SQLite DATABASE_URL will throw at startup —
+> services use the Postgres schema with `defaultNow()` which generates
+> `NOW()` SQL that SQLite cannot execute. To actually run the app locally,
+> use Option A (Docker + Postgres).
 
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
 cd Headless_CRM
-./scripts/setup-sqlite.sh
-npm run dev
+./scripts/setup-sqlite.sh    # creates seeded headless-crm.db
 ```
-
-The API runs on `http://localhost:3001` and the web UI on `http://localhost:3000`.
 
 The setup script:
 - Installs npm deps (force-installs `better-sqlite3` if the optional dep was skipped)
-- Writes `DATABASE_URL=file:./headless-crm.db` to `.env`
-- Generates and applies SQLite migrations
+- Writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`
+- Generates and applies SQLite migrations to the seeded `headless-crm.db`
 - Seeds 5 companies, 5 contacts, 5 deals, 4 cases, 4 agents
 
-> Note: a few Postgres-only features (semantic vector search via pgvector,
-> pipeline auto-advance triggers) are skipped in SQLite mode. Everything else
-> — REST API, MCP tools, agent auth, webhooks, custom fields — works fully.
+After this, you can open the `.db` file with any SQLite browser to explore
+the schema and data. To run the app, switch to Postgres.
 
 ## Project Structure
 
