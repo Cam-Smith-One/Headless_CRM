@@ -5,7 +5,77 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — Security & feature hardening pass
+## [0.1.1] — 2026-05-05 — SQLite as a real runtime backend + E2E hardening
+
+The big follow-up to v0.1.0. The previously-documented limitation
+"SQLite is NOT a runtime backend yet" is gone — the full open-source
+stack now runs on SQLite end-to-end.
+
+### Added — SQLite runtime support
+
+- `packages/db/src/index.ts` detects `DATABASE_URL=file:*` at module-load
+  and re-exports the SQLite-compatible schema instead of the Postgres
+  one. Service code's `import { contacts } from "@headless-crm/db"`
+  silently gets the right table for the active backend.
+- `packages/db/src/client.ts` lazy-loads `better-sqlite3` (via
+  `createRequire`) and patches every prepared statement so `Date`
+  params get serialized to ISO strings before binding (better-sqlite3
+  only accepts primitives + Buffer + null).
+- New `ilikeCompat(col, pattern)` helper in `@headless-crm/db` —
+  `LOWER(col) LIKE LOWER(pattern)` works on both backends. Replaced 3
+  Postgres-only `ilike()` calls in contacts/companies/cases services.
+- `pipelineTriggers` table added to the SQLite schema; migrations
+  regenerated. All 25 tables now exist in both schemas.
+- Better Auth `drizzleAdapter` now switches its provider based on
+  `isSqlite()` — SQLite mode uses `provider: "sqlite"`, Postgres uses
+  `"pg"`. Fixes signup/sign-in on SQLite.
+
+### Fixed — bugs surfaced by web-UI E2E test (2f31b40)
+
+After flipping SQLite to a runtime backend, end-to-end-testing the open-
+source path (clean clone → setup-sqlite.sh → npm run dev → sign up via
+web → CRUD via API) surfaced four real bugs:
+
+- **`apps/api/src/app.ts`**: 16 inline `require()` calls in route
+  handlers worked when Next.js / tsx wrapped the file but threw
+  `ReferenceError: require is not defined` in pure ESM runtime.
+  Symptom: `GET /api/agents` and `GET /api/events` 500. Lifted all
+  drizzle helpers and schema tables to static imports at the top.
+- **`turbo.json`**: turbo's strict env model meant `npm run dev`
+  didn't pass `DATABASE_URL` (and similar) through to the spawned web
+  subprocess; Better Auth defaulted to Postgres with no URL and
+  attempted to connect to "database `cameronsmith`". Added
+  `globalPassThroughEnv` allowlist.
+- **`packages/auth-web/src/index.ts`**: `provider: "pg"` was hardcoded.
+  Even on SQLite, Better Auth generated Postgres SQL → 500 on signup.
+- **`apps/web/src/app/api/auth/setup/route.ts`**: L-3's race fix wraps
+  the count/insert/update in `db.transaction(async ...)`, but
+  better-sqlite3's `transaction()` is sync-only and rejects async
+  callbacks. Branched on `isSqlite()`: sequential check-and-act in
+  SQLite (single-process WAL serializes writes anyway), transaction
+  on Postgres.
+
+### Documentation
+
+- README "Option 2: SQLite (no Docker — full runtime)" — re-promoted
+  as the simplest path for builders / agent framework users. Two
+  Postgres-only features documented (pgvector, Resend metadata-JSON
+  cross-tenant lookup); everything else is feature-equivalent.
+- CONTRIBUTING walked through the cross-backend implementation.
+- `.env.example` continues to document `RESEND_WEBHOOK_SECRET`.
+
+### Verified live (SQLite, clean clone)
+
+- All 14 read endpoints → 200
+- All 9 valid POSTs → 201
+- 5 search/filter queries → 200
+- PATCH + DELETE roundtrip → 200
+- Web UI signup → setup wizard → session-token → API CRUD: green
+- 0 errors in API log; 33/33 tests pass; 9/9 packages build clean
+
+---
+
+## [0.1.0] — 2026-05-04 — Security & feature hardening pass
 
 This pass closes a full pre-public-release audit (three rounds) that
 surfaced 4 critical, 6 high, and 14 medium/low findings. All blockers
@@ -111,38 +181,15 @@ are addressed; the repo is ready to flip public.
 - **Reserved `sqlite_*` index prefix renamed to `sqlt_*`** —
   SQLite rejects user-created object names starting with `sqlite_`.
 
-### SQLite is now a fully-supported runtime backend
+### Known limitations at v0.1.0
 
-Closed out the previously deferred limitation. `DATABASE_URL=file:./foo.db`
-runs the full API server, web UI, MCP transport, agent auth, webhooks,
-custom fields, tags, pipeline triggers — everything except pgvector
-semantic search and the Postgres-JSONB-specific resend lookup.
-
-Implementation:
-- `packages/db/src/index.ts` checks `DATABASE_URL` at module-load and
-  re-exports the SQLite-compatible schema (`sqliteSchema.tenants`,
-  `.agents`, etc.) instead of the Postgres one when the URL starts with
-  `file:` or `sqlite:`. Service code that does
-  `import { contacts } from "@headless-crm/db"` automatically gets the
-  right table for the active backend.
-- `packages/db/src/client.ts` lazy-loads `better-sqlite3` (via
-  `createRequire`, so Postgres-only deploys never see the install) and
-  patches every prepared statement so `Date` params are serialized to
-  ISO strings before binding. (better-sqlite3 only accepts primitives +
-  Buffer + null.)
-- New `ilikeCompat` helper in `@headless-crm/db` replaces Drizzle's
-  Postgres-only `ilike` in the contacts/companies/cases services with
-  cross-backend `LOWER(col) LIKE LOWER(pattern)`.
-- All 25 tables now exist in both schemas (added `pipelineTriggers` to
-  the SQLite schema; regenerated migrations).
-- `bumped better-sqlite3` to `^12.9.0` for Node 25 support.
-
-### Known limitations (intentionally deferred)
-
+- **SQLite is NOT a runtime backend yet.** Setup script + seed work,
+  but services statically import the Postgres schema with `defaultNow()`
+  which generates `NOW()` SQL that SQLite cannot execute. Setting
+  `DATABASE_URL=file:*` at runtime throws with a clear error pointing
+  at Docker / Vercel as supported paths. **Closed in v0.1.1.**
 - **30-day JWT expiry, no rotation list.** Suspending the agent is
   the only mitigation if a JWT leaks. Acceptable for now; documented.
-- **pgvector + Postgres-JSONB resend lookup don't run on SQLite.** Both
-  are documented as Postgres-only features.
 
 ### Documentation
 
