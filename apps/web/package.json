@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "cd ../.. && PORT=3000 node scripts/run-with-root-env.mjs node_modules/.bin/next dev apps/web",
+    "build": "cd ../.. && node scripts/run-with-root-env.mjs node_modules/.bin/next build apps/web",
+    "start": "cd ../.. && PORT=3000 node scripts/run-with-root-env.mjs node_modules/.bin/next start apps/web",
     "lint": "eslint"
   },
   "dependencies": {

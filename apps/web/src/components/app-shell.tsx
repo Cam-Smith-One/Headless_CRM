@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 
+const AUTH_PATHS = ["/login", "/setup", "/signup"];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  if (AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
