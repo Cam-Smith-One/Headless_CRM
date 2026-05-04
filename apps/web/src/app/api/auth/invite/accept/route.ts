@@ -34,6 +34,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid or expired invite" }, { status: 404 });
   }
 
+  // Bind invite to the email it was issued for. Without this, anyone
+  // with the (forwardable) invite link could sign up with their own email
+  // and inherit the role + tenant. Compare case-insensitively.
+  const sessionEmail = (session.user.email ?? "").toLowerCase();
+  const inviteEmail = (invite.email ?? "").toLowerCase();
+  if (!sessionEmail || sessionEmail !== inviteEmail) {
+    return NextResponse.json(
+      {
+        error: "This invite was issued for a different email address. Sign in with that email to accept it.",
+      },
+      { status: 403 },
+    );
+  }
+
   // Assign user to the tenant with the invited role
   await db
     .update(users)

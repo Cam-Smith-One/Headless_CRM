@@ -12,6 +12,81 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@headless-crm/db";
+import { z } from "zod";
+
+// ---------------------------------------------------------------------------
+// Route-input schemas — keep alongside the routes that use them.
+// Each route POST/PATCH should pass user input through one of these before
+// handing it to a service. Reject unknown fields (`.strict()`) so a caller
+// can't smuggle privileged fields into a service that uses spread syntax.
+// ---------------------------------------------------------------------------
+const provisionAgentSchema = z.object({
+  name: z.string().min(1).max(200),
+  type: z.enum(["autonomous", "supervised", "scheduled", "reactive"]).optional(),
+  role: z.enum(["reader", "operator", "developer", "auditor"]),
+  ownerUserId: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+  collections: z.array(z.string()).optional(),
+}).strict();
+
+const inboundWebhookSchema = z.object({
+  source: z.string().min(1).max(200),
+  eventType: z.string().min(1).max(200),
+  data: z.record(z.unknown()).optional(),
+}).strict();
+
+const approvalReviewSchema = z.object({
+  reviewNote: z.string().max(2000).optional(),
+}).strict();
+
+/** Run a Zod schema against a JSON body. Returns parsed data or sends 400. */
+async function parseBody<T extends z.ZodTypeAny>(c: any, schema: T): Promise<z.infer<T> | Response> {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+  const result = schema.safeParse(body);
+  if (!result.success) {
+    return c.json(
+      { error: "Validation failed", issues: result.error.issues },
+      400,
+    );
+  }
+  return result.data;
+}
+
+/**
+ * errorResponse — map a thrown error to a sanitized JSON response.
+ *
+ * Goals:
+ *   - 400 for Zod validation
+ *   - 404 for "not found" service errors (matched by message)
+ *   - 403 for forbidden / self-approval errors
+ *   - 500 generic server error otherwise — DOES NOT echo the raw message,
+ *     which can leak DB column names, "duplicate key" constraint text, etc.
+ *     The full error is logged server-side with a correlation id.
+ */
+function errorResponse(c: any, e: any) {
+  // Zod validation
+  if (e?.name === "ZodError" || e?.issues) {
+    return c.json({ error: "Validation failed", issues: e.issues ?? e.errors }, 400);
+  }
+  const msg = String(e?.message ?? e ?? "");
+  // Common service-thrown errors
+  if (/not found/i.test(msg)) return c.json({ error: msg }, 404);
+  if (/cannot approve your own|cannot reject your own|self[- ]approval/i.test(msg)) {
+    return c.json({ error: msg }, 403);
+  }
+  if (/forbidden/i.test(msg)) return c.json({ error: msg }, 403);
+  if (/expired|not pending/i.test(msg)) return c.json({ error: msg }, 409);
+
+  // Default: log server-side, return generic to client.
+  const correlationId = `err_${Math.random().toString(36).slice(2, 10)}`;
+  console.error(`[${correlationId}]`, e);
+  return c.json({ error: "Internal server error", correlationId }, 500);
+}
 
 // ---------------------------------------------------------------------------
 // In-memory sliding-window rate limiter
@@ -113,6 +188,10 @@ function requireRole(...roles: string[]) {
 const requireWrite = requireRole("operator", "developer");
 const requireDelete = requireRole("developer");
 const requireManage = requireRole("developer");
+// Audit-trail access. Auditor + developer can list events / read agent logs.
+// Reader / operator can NOT — keeps the auditor role meaningful and prevents
+// agents from seeing each other's actions unless explicitly granted.
+const requireAudit = requireRole("auditor", "developer");
 
 // Auth middleware
 async function authenticate(c: any, next: any) {
@@ -131,6 +210,15 @@ async function authenticate(c: any, next: any) {
 
 export function createApp() {
   const app = new Hono();
+
+  // Reject CORS_ORIGINS=* in production. Wildcard CORS in a tenant-scoped API
+  // means any origin can attempt cookie-bearing requests; coupled with a leaked
+  // session cookie this becomes a CSRF surface. Force an explicit allowlist.
+  if (process.env.NODE_ENV === "production" && (process.env.CORS_ORIGINS ?? "").includes("*")) {
+    throw new Error(
+      "CORS_ORIGINS cannot include '*' in production. Set an explicit comma-separated allowlist of origins.",
+    );
+  }
 
   app.use("*", cors({
     origin: (process.env.CORS_ORIGINS || "http://localhost:3000").split(","),
@@ -184,18 +272,13 @@ export function createApp() {
   app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
   app.get("/api/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
 
-  // Setup status endpoint — no auth required, returns non-sensitive config status
+  // Setup status endpoint — no auth required.
+  // Returns ONLY whether setup is complete. Previously also leaked
+  // `agentCount` (enumeration) and `adminKeySet` (probe for which deploys
+  // have admin provisioning enabled). Trimmed to a single boolean.
   app.get("/api/setup/status", async (c) => {
     const adminKeySet = !!process.env.ADMIN_API_KEY;
-    let agentCount = 0;
-    try {
-      const { agents } = require("@headless-crm/db");
-      const rows = await getDb().select().from(agents);
-      agentCount = rows.length;
-    } catch {
-      // DB may not be available yet
-    }
-    return c.json({ configured: adminKeySet, agentCount, adminKeySet });
+    return c.json({ configured: adminKeySet });
   });
 
   // Admin bootstrap endpoint — no JWT required, uses ADMIN_API_KEY
@@ -235,7 +318,7 @@ export function createApp() {
       const companyId = c.req.query("companyId") || undefined;
       return c.json(await getCRM().contacts.query(ctx, { limit, offset, search, companyId }));
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -244,7 +327,7 @@ export function createApp() {
       const record = await getCRM().contacts.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -253,7 +336,7 @@ export function createApp() {
       const record = await getCRM().contacts.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -262,7 +345,7 @@ export function createApp() {
       const record = await getCRM().contacts.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -271,7 +354,7 @@ export function createApp() {
       const record = await getCRM().contacts.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -284,7 +367,7 @@ export function createApp() {
       const search = c.req.query("search") || undefined;
       return c.json(await getCRM().companies.query(ctx, { limit, offset, search }));
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -293,7 +376,7 @@ export function createApp() {
       const record = await getCRM().companies.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -302,7 +385,7 @@ export function createApp() {
       const record = await getCRM().companies.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -311,7 +394,7 @@ export function createApp() {
       const record = await getCRM().companies.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -320,7 +403,7 @@ export function createApp() {
       const record = await getCRM().companies.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -335,7 +418,7 @@ export function createApp() {
       const companyId = c.req.query("companyId") || undefined;
       return c.json(await getCRM().deals.query(ctx, { limit, offset, stage, pipelineId, companyId }));
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -344,7 +427,7 @@ export function createApp() {
       const record = await getCRM().deals.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -353,7 +436,7 @@ export function createApp() {
       const record = await getCRM().deals.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -362,7 +445,7 @@ export function createApp() {
       const record = await getCRM().deals.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -371,7 +454,7 @@ export function createApp() {
       const record = await getCRM().deals.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -381,7 +464,7 @@ export function createApp() {
       const contactIds = await getCRM().deals.getContacts(c.get("ctx"), c.req.param("id"));
       return c.json({ contactIds });
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -410,7 +493,7 @@ export function createApp() {
       const records = await getCRM().pipelines.list(c.get("ctx"));
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -419,7 +502,7 @@ export function createApp() {
       const record = await getCRM().pipelines.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -428,7 +511,7 @@ export function createApp() {
       const record = await getCRM().pipelines.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -437,7 +520,7 @@ export function createApp() {
       const record = await getCRM().pipelines.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -446,7 +529,7 @@ export function createApp() {
       const record = await getCRM().pipelines.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
   // Cases
@@ -462,7 +545,7 @@ export function createApp() {
       const companyId = c.req.query("companyId") || undefined;
       return c.json(await getCRM().cases.query(ctx, { limit, offset, search, status, priority, contactId, companyId }));
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -471,7 +554,7 @@ export function createApp() {
       const record = await getCRM().cases.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -480,7 +563,7 @@ export function createApp() {
       const record = await getCRM().cases.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -489,7 +572,7 @@ export function createApp() {
       const record = await getCRM().cases.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -498,7 +581,7 @@ export function createApp() {
       const record = await getCRM().cases.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -543,7 +626,7 @@ export function createApp() {
         c.header("Content-Disposition", `attachment; filename="${collection}-export.csv"`);
         return c.body(csv);
       } catch (e: any) {
-        return c.json({ error: e.message }, 500);
+        return errorResponse(c, e);
       }
     });
   }
@@ -589,7 +672,7 @@ export function createApp() {
 
         return c.json({ imported, failed, errors });
       } catch (e: any) {
-        return c.json({ error: e.message }, 500);
+        return errorResponse(c, e);
       }
     });
   }
@@ -600,7 +683,7 @@ export function createApp() {
       const result = await getCRM().emails.send(c.get("ctx"), await c.req.json());
       return c.json(result, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -609,7 +692,7 @@ export function createApp() {
       const record = await getCRM().emails.log(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -625,7 +708,7 @@ export function createApp() {
       }
       return c.json({ error: "Provide contactId or recordType+recordId" }, 400);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -635,12 +718,12 @@ export function createApp() {
       const record = await getCRM().activities.log(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
   // Events (audit trail)
-  api.get("/events", async (c) => {
+  api.get("/events", requireAudit, async (c) => {
     try {
       const { desc, eq } = require("drizzle-orm");
       const { crmEvents } = require("@headless-crm/db");
@@ -655,7 +738,7 @@ export function createApp() {
         .offset(offset);
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -667,16 +750,18 @@ export function createApp() {
       const records = await getDb().select().from(agents).where(eq(agents.tenantId, c.get("ctx").tenantId));
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
   api.post("/agents", requireManage, async (c) => {
     try {
-      const result = await getAuth().provisionAgent(c.get("ctx").tenantId, await c.req.json());
+      const parsed = await parseBody(c, provisionAgentSchema);
+      if (parsed instanceof Response) return parsed;
+      const result = await getAuth().provisionAgent(c.get("ctx").tenantId, parsed);
       return c.json(result, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -685,7 +770,7 @@ export function createApp() {
       const agent = await getAuth().suspendAgent(c.get("ctx").tenantId, c.req.param("id"));
       return c.json(agent);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -694,7 +779,7 @@ export function createApp() {
       const agent = await getAuth().activateAgent(c.get("ctx").tenantId, c.req.param("id"));
       return c.json(agent);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -703,12 +788,12 @@ export function createApp() {
       const agent = await getAuth().suspendAgent(c.get("ctx").tenantId, c.req.param("id"));
       return c.json(agent);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
-  // Agent logs — events filtered by agentId
-  api.get("/agents/:id/logs", async (c) => {
+  // Agent logs — events filtered by agentId. Audit access only.
+  api.get("/agents/:id/logs", requireAudit, async (c) => {
     try {
       const { desc, eq, and, gte } = require("drizzle-orm");
       const { crmEvents } = require("@headless-crm/db");
@@ -735,7 +820,7 @@ export function createApp() {
         .offset(offset);
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -795,7 +880,7 @@ export function createApp() {
       events: { total: eventsTotal, today: eventsToday },
     });
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -806,7 +891,7 @@ export function createApp() {
       const records = await getCRM().pipelineTriggers.list(c.get("ctx"), pipelineId);
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -824,7 +909,7 @@ export function createApp() {
       const record = await getCRM().pipelineTriggers.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -842,7 +927,70 @@ export function createApp() {
       const record = await getCRM().pipelineTriggers.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
+    }
+  });
+
+  // Tags — categorization labels attached to any record.
+  api.get("/tags", async (c) => {
+    try {
+      const objectType = c.req.query("objectType") ?? undefined;
+      const records = await getCRM().tags.list(c.get("ctx"), objectType);
+      return c.json(records);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.post("/tags", requireWrite, async (c) => {
+    try {
+      const body = await c.req.json();
+      const record = await getCRM().tags.create(c.get("ctx"), body);
+      return c.json(record, 201);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  api.delete("/tags/:id", requireDelete, async (c) => {
+    try {
+      const result = await getCRM().tags.delete(c.get("ctx"), c.req.param("id"));
+      return c.json(result);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.post("/tags/attach", requireWrite, async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = await getCRM().tags.attach(c.get("ctx"), body);
+      return c.json(result);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  api.post("/tags/detach", requireWrite, async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = await getCRM().tags.detach(c.get("ctx"), body);
+      return c.json(result);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  api.get("/tags/record/:type/:id", async (c) => {
+    try {
+      const records = await getCRM().tags.listForRecord(
+        c.get("ctx"),
+        c.req.param("type"),
+        c.req.param("id"),
+      );
+      return c.json(records);
+    } catch (e: any) {
+      return errorResponse(c, e);
     }
   });
 
@@ -852,7 +1000,7 @@ export function createApp() {
       const records = await getCRM().webhooks.list(c.get("ctx"));
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -861,7 +1009,7 @@ export function createApp() {
       const record = await getCRM().webhooks.register(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -870,7 +1018,7 @@ export function createApp() {
       const record = await getCRM().webhooks.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -879,7 +1027,7 @@ export function createApp() {
       const record = await getCRM().webhooks.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -888,7 +1036,7 @@ export function createApp() {
       const result = await getCRM().webhooks.delete(c.get("ctx"), c.req.param("id"));
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -904,7 +1052,7 @@ export function createApp() {
       });
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -924,19 +1072,17 @@ export function createApp() {
       const result = await getCRM().webhooks.deliver(webhook, testEvent);
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
   // Inbound webhooks - receive data from external systems
   api.post("/webhooks/inbound", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const parsed = await parseBody(c, inboundWebhookSchema);
+      if (parsed instanceof Response) return parsed;
       const ctx = c.get("ctx");
-      const { source, eventType, data } = body;
-      if (!source || !eventType) {
-        return c.json({ error: "source and eventType are required" }, 400);
-      }
+      const { source, eventType, data } = parsed;
       // Deliver to all outbound webhooks subscribed to inbound.* events
       const inboundEvent = {
         eventType: `inbound.${eventType}`,
@@ -969,7 +1115,7 @@ export function createApp() {
       const records = await getCRM().customFields.list(c.get("ctx"), collection || undefined);
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -978,7 +1124,7 @@ export function createApp() {
       const record = await getCRM().customFields.define(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -987,7 +1133,7 @@ export function createApp() {
       const record = await getCRM().customFields.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -996,7 +1142,7 @@ export function createApp() {
       const record = await getCRM().customFields.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1005,7 +1151,7 @@ export function createApp() {
       const record = await getCRM().customFields.delete(c.get("ctx"), c.req.param("id"));
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1025,7 +1171,7 @@ export function createApp() {
       const results = await getCRM().embeddings.semanticSearch(ctx, collection, q, limit);
       return c.json({ data: results });
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1043,7 +1189,7 @@ export function createApp() {
       const result = await getCRM().embeddings.embedAll(ctx, collection);
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1055,7 +1201,7 @@ export function createApp() {
       const records = await getCRM().approvals.list(ctx, { status: status || undefined });
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1065,7 +1211,7 @@ export function createApp() {
       const pending = await getCRM().approvals.getPending(ctx);
       return c.json({ count: pending.length, data: pending });
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1074,14 +1220,20 @@ export function createApp() {
       const record = await getCRM().approvals.getById(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
   api.post("/approvals/:id/approve", requireManage, async (c) => {
     try {
-      const body = await c.req.json().catch(() => ({}));
-      const record = await getCRM().approvals.approve(c.get("ctx"), c.req.param("id"), body.reviewNote);
+      // Allow empty body; reviewNote is optional.
+      let body: any = {};
+      try { body = await c.req.json(); } catch { /* empty */ }
+      const result = approvalReviewSchema.safeParse(body);
+      if (!result.success) {
+        return c.json({ error: "Validation failed", issues: result.error.issues }, 400);
+      }
+      const record = await getCRM().approvals.approve(c.get("ctx"), c.req.param("id"), result.data.reviewNote);
 
       // If this was an agent_provision approval, activate the agent
       if (record.type === "agent_provision" && record.metadata && typeof record.metadata === "object") {
@@ -1093,14 +1245,19 @@ export function createApp() {
 
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
   api.post("/approvals/:id/reject", requireManage, async (c) => {
     try {
-      const body = await c.req.json().catch(() => ({}));
-      const record = await getCRM().approvals.reject(c.get("ctx"), c.req.param("id"), body.reviewNote);
+      let body: any = {};
+      try { body = await c.req.json(); } catch { /* empty */ }
+      const result = approvalReviewSchema.safeParse(body);
+      if (!result.success) {
+        return c.json({ error: "Validation failed", issues: result.error.issues }, 400);
+      }
+      const record = await getCRM().approvals.reject(c.get("ctx"), c.req.param("id"), result.data.reviewNote);
 
       // If this was an agent_provision approval, suspend the agent
       if (record.type === "agent_provision" && record.metadata && typeof record.metadata === "object") {
@@ -1112,7 +1269,7 @@ export function createApp() {
 
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1153,7 +1310,7 @@ export function createApp() {
       const { data: _data, ...meta } = record;
       return c.json(meta, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1190,7 +1347,7 @@ export function createApp() {
         );
       return c.json(records);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1215,7 +1372,7 @@ export function createApp() {
       c.header("Content-Disposition", `attachment; filename="${record.filename}"`);
       return c.body(buffer);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1239,7 +1396,7 @@ export function createApp() {
       if (!deleted) return c.json({ error: "Not found" }, 404);
       return c.json(deleted);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1253,7 +1410,7 @@ export function createApp() {
       const offset = parseInt(c.req.query("offset") || "") || 0;
       return c.json(await getCRM().notifications.list(ctx, { unreadOnly, limit, offset }));
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1262,7 +1419,7 @@ export function createApp() {
       const count = await getCRM().notifications.getUnreadCount(c.get("ctx"));
       return c.json({ count });
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1271,7 +1428,7 @@ export function createApp() {
       const record = await getCRM().notifications.markRead(c.get("ctx"), c.req.param("id"));
       return record ? c.json(record) : c.json({ error: "Not found" }, 404);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
 
@@ -1280,7 +1437,7 @@ export function createApp() {
       const result = await getCRM().notifications.markAllRead(c.get("ctx"));
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 500);
+      return errorResponse(c, e);
     }
   });
   // ── API Documentation (public, no auth) ──────────────────────────────────

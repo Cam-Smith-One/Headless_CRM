@@ -216,14 +216,18 @@ export function createAuthService(db: any) {
 
     checkPermission(
       token: AgentToken,
-      action: "read" | "create" | "update" | "delete" | "schema",
+      action: "read" | "create" | "update" | "delete" | "schema" | "audit",
       collection?: string
     ): boolean {
+      // "audit" gates access to the audit trail / event log.
+      // - reader / operator: can read CRM data but NOT the audit log
+      // - auditor: read + audit (no writes; sees all agent activity)
+      // - developer: full incl. audit
       const rolePermissions: Record<string, Set<string>> = {
         reader: new Set(["read"]),
         operator: new Set(["read", "create", "update"]),
-        developer: new Set(["read", "create", "update", "delete", "schema"]),
-        auditor: new Set(["read"]),
+        developer: new Set(["read", "create", "update", "delete", "schema", "audit"]),
+        auditor: new Set(["read", "audit"]),
       };
 
       const allowed = rolePermissions[token.role];
