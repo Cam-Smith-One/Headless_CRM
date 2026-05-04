@@ -101,6 +101,47 @@ describe("createApprovalsService", () => {
     await expect(service.approve(ctx, "apv_1")).rejects.toThrow("expired");
   });
 
+  it("blocks self-approval — requester cannot approve their own request", async () => {
+    vi.spyOn(service, "getById").mockResolvedValue({
+      id: "apv_self",
+      status: "pending",
+      expiresAt: null,
+      requestedByAgentId: ctx.agentId, // same as the caller
+    } as any);
+
+    await expect(service.approve(ctx, "apv_self")).rejects.toThrow(
+      /self-approval is not allowed/i,
+    );
+  });
+
+  it("blocks self-rejection — requester cannot reject their own request", async () => {
+    vi.spyOn(service, "getById").mockResolvedValue({
+      id: "apv_self",
+      status: "pending",
+      expiresAt: null,
+      requestedByAgentId: ctx.agentId,
+    } as any);
+
+    await expect(service.reject(ctx, "apv_self")).rejects.toThrow(
+      /cannot reject your own request/i,
+    );
+  });
+
+  it("allows approval when reviewer differs from requester", async () => {
+    vi.spyOn(service, "getById").mockResolvedValue({
+      id: "apv_other",
+      status: "pending",
+      expiresAt: null,
+      requestedByAgentId: "agent_OTHER", // different agent
+    } as any);
+
+    const result = await service.approve(ctx, "apv_other");
+    expect(mockEvents.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: "approvals.approved" }),
+    );
+    expect(result).toBeDefined();
+  });
+
   it("getExpired marks overdue pending approvals as expired", async () => {
     const expiredRecord = {
       id: "apv_expired",

@@ -91,6 +91,17 @@ export function createApprovalsService(db: any, events: EventEmitter) {
       if (existing.status !== "pending") throw new Error(`Approval ${id} is not pending`);
       if (existing.expiresAt && new Date(existing.expiresAt) < new Date()) throw new Error("Approval has expired");
 
+      // Block self-approval: an agent cannot approve its own request. Without
+      // this, a developer-role agent could provision and self-activate further
+      // agents, defeating the human-in-the-loop control entirely.
+      if (
+        ctx.agentId &&
+        existing.requestedByAgentId &&
+        ctx.agentId === existing.requestedByAgentId
+      ) {
+        throw new Error("Cannot approve your own request (self-approval is not allowed)");
+      }
+
       const [record] = await db
         .update(approvals)
         .set({
@@ -122,6 +133,16 @@ export function createApprovalsService(db: any, events: EventEmitter) {
       if (!existing) throw new Error(`Approval ${id} not found`);
       if (existing.status !== "pending") throw new Error(`Approval ${id} is not pending`);
       if (existing.expiresAt && new Date(existing.expiresAt) < new Date()) throw new Error("Approval has expired");
+
+      // Block self-rejection too — symmetric with approve(); a request must be
+      // reviewed by someone other than the requester.
+      if (
+        ctx.agentId &&
+        existing.requestedByAgentId &&
+        ctx.agentId === existing.requestedByAgentId
+      ) {
+        throw new Error("Cannot reject your own request");
+      }
 
       const [record] = await db
         .update(approvals)

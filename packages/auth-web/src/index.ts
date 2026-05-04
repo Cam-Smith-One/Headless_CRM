@@ -14,8 +14,50 @@ import * as schema from "@headless-crm/db";
  *  - Google OAuth: enabled when GOOGLE_CLIENT_ID env var is set
  *  - GitHub OAuth: enabled when GITHUB_CLIENT_ID env var is set
  */
+/**
+ * Resolve the Better Auth signing secret.
+ *
+ * In production, BETTER_AUTH_SECRET MUST be set (>= 32 chars). Without this
+ * guard, a misconfigured prod deploy would silently use a hardcoded dev
+ * fallback and accept any session signed with that well-known literal.
+ *
+ * The check is intentionally NOT done at module load — Next.js collects page
+ * data during `next build` with NODE_ENV=production, and a throw there would
+ * break builds that don't have the secret in the build environment (only the
+ * runtime environment). We resolve at first use of the auth handler instead;
+ * the warning is logged at module load to surface misconfigs early.
+ */
+function resolveBetterAuthSecret(): string {
+  const fromEnv = process.env.BETTER_AUTH_SECRET;
+  if (fromEnv && fromEnv.length >= 32) return fromEnv;
+  // During `next build` (page-data collection runs in production mode),
+  // NEXT_PHASE is "phase-production-build". Allow a placeholder in that
+  // phase so builds don't fail; runtime will reject if the env is still
+  // missing. Same applies to one-off scripts that import the module
+  // before env is loaded.
+  const isBuildPhase = process.env.NEXT_PHASE?.startsWith("phase-production-build");
+  if (process.env.NODE_ENV === "production" && !isBuildPhase) {
+    throw new Error(
+      "BETTER_AUTH_SECRET is required in production and must be at least 32 chars. " +
+        "Set it to a strong random value (e.g. `openssl rand -base64 32`).",
+    );
+  }
+  return "dev-only-change-me-in-production-32chars!!";
+}
+
+// Surface the misconfig early in non-build runtimes via a console warn.
+if (
+  process.env.NODE_ENV === "production" &&
+  (!process.env.BETTER_AUTH_SECRET || process.env.BETTER_AUTH_SECRET.length < 32) &&
+  !process.env.NEXT_PHASE
+) {
+  console.warn(
+    "[auth-web] BETTER_AUTH_SECRET is missing or too short. Auth handlers will throw on first use.",
+  );
+}
+
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET ?? "change-me-in-production-32chars!!",
+  secret: resolveBetterAuthSecret(),
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
 
   database: drizzleAdapter(getDb(), {
