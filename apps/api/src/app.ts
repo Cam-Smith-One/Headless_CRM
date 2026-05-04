@@ -1679,19 +1679,22 @@ export function createApp() {
       return c.json({ received: true, skipped: `unhandled event type: ${eventType}` });
     }
 
-    // Find activities with this resendId across all tenants
-    // (activities are scoped per tenant; we need to check all tenants
-    //  because webhook doesn't carry tenant info)
-    const allActivities = await getDb()
+    // Find activities with this resendId across all tenants. Resend webhooks
+    // don't carry tenant info, so we look up by the unique resendId in the
+    // activity's metadata. Index this at the SQL layer rather than scanning
+    // the full table — `metadata->>'resendId' = $1` uses the JSONB operator
+    // and would benefit from a functional index in production.
+    const { sql, eq, and, isNotNull } = await import("drizzle-orm");
+    const matched = await getDb()
       .select()
-      .from(schema.activities);
-    const matched = allActivities.filter(
-      (a: any) =>
-        a.dealId &&
-        a.metadata &&
-        typeof a.metadata === "object" &&
-        (a.metadata as Record<string, unknown>).resendId === resendId
-    );
+      .from(schema.activities)
+      .where(
+        and(
+          isNotNull(schema.activities.dealId),
+          sql`${schema.activities.metadata}->>'resendId' = ${resendId}`,
+        ),
+      )
+      .limit(50);
 
     const advanced: Array<{ dealId: string; tenantId: string; fromStage: string; toStage: string }> = [];
     for (const activity of matched) {

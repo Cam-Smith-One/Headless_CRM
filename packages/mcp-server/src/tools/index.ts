@@ -719,5 +719,84 @@ export function defineTools(deps: ToolDeps) {
         return meta;
       },
     },
+
+    // -----------------------------------------------------------------------
+    // Tags — categorization labels attachable to any record.
+    // crm_schema already advertises the tags entity; these tools make it real.
+    // -----------------------------------------------------------------------
+    crm_tag_list: {
+      description:
+        "List all tags in the tenant. Pass objectType to filter (e.g. 'contacts', 'deals').",
+      inputSchema: z.object({
+        objectType: z.string().optional(),
+      }),
+      annotations: { readOnly: true },
+      async execute(input: any) {
+        return crm.tags.list(ctx, input.objectType);
+      },
+    },
+
+    crm_tag_create: {
+      description:
+        "Create a new tag scoped to this tenant. objectType indicates which record kind it's intended for (e.g. 'contacts'). color is an optional CSS color string.",
+      inputSchema: z.object({
+        name: z.string().min(1).max(100),
+        objectType: z.string().min(1).max(50),
+        color: z.string().max(20).optional(),
+      }),
+      annotations: { readOnly: false },
+      async execute(input: any) {
+        return crm.tags.create(ctx, input);
+      },
+    },
+
+    crm_tag_delete: {
+      description:
+        "Delete a tag. Also removes all of its record_tags attachments. Developer role only.",
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { readOnly: false, destructive: true },
+      async execute(input: any) {
+        return crm.tags.delete(ctx, input.id);
+      },
+    },
+
+    crm_tag_attach: {
+      description:
+        "Attach a tag to a record. recordType ∈ {contacts, companies, deals, cases, activities}. Validates both the tag and the record belong to the caller's tenant.",
+      inputSchema: z.object({
+        tagId: z.string(),
+        recordType: z.enum(["contacts", "companies", "deals", "cases", "activities"]),
+        recordId: z.string(),
+      }),
+      annotations: { readOnly: false },
+      async execute(input: any) {
+        return crm.tags.attach(ctx, input);
+      },
+    },
+
+    crm_tag_detach: {
+      description: "Detach a previously-attached tag from a record.",
+      inputSchema: z.object({
+        tagId: z.string(),
+        recordType: z.enum(["contacts", "companies", "deals", "cases", "activities"]),
+        recordId: z.string(),
+      }),
+      annotations: { readOnly: false },
+      async execute(input: any) {
+        return crm.tags.detach(ctx, input);
+      },
+    },
+
+    crm_tag_list_for_record: {
+      description: "List all tags attached to a specific record.",
+      inputSchema: z.object({
+        recordType: z.string(),
+        recordId: z.string(),
+      }),
+      annotations: { readOnly: true },
+      async execute(input: any) {
+        return crm.tags.listForRecord(ctx, input.recordType, input.recordId);
+      },
+    },
   };
 }
