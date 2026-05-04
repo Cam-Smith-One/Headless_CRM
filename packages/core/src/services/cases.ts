@@ -1,4 +1,5 @@
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { ilikeCompat } from "@headless-crm/db";
 import { cases, contacts, companies, deals, agents } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -198,7 +199,7 @@ export function createCasesService(
         options.contactId ? eq(cases.contactId, options.contactId) : undefined,
         options.companyId ? eq(cases.companyId, options.companyId) : undefined,
         escapedSearch
-          ? ilike(cases.title, `%${escapedSearch}%`)
+          ? ilikeCompat(cases.title, `%${escapedSearch}%`)
           : undefined
       );
 

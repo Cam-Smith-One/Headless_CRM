@@ -1,4 +1,5 @@
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { ilikeCompat } from "@headless-crm/db";
 import { contacts, crmEvents } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -159,7 +160,7 @@ export function createContactsService(
         eq(contacts.stateCode, "active"),
         options.companyId ? eq(contacts.companyId, options.companyId) : undefined,
         escapedSearch
-          ? ilike(
+          ? ilikeCompat(
               sql`COALESCE(${contacts.firstName}, '') || ' ' || COALESCE(${contacts.lastName}, '') || ' ' || COALESCE(${contacts.email}, '')`,
               `%${escapedSearch}%`
             )

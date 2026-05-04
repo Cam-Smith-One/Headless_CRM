@@ -111,17 +111,38 @@ are addressed; the repo is ready to flip public.
 - **Reserved `sqlite_*` index prefix renamed to `sqlt_*`** —
   SQLite rejects user-created object names starting with `sqlite_`.
 
+### SQLite is now a fully-supported runtime backend
+
+Closed out the previously deferred limitation. `DATABASE_URL=file:./foo.db`
+runs the full API server, web UI, MCP transport, agent auth, webhooks,
+custom fields, tags, pipeline triggers — everything except pgvector
+semantic search and the Postgres-JSONB-specific resend lookup.
+
+Implementation:
+- `packages/db/src/index.ts` checks `DATABASE_URL` at module-load and
+  re-exports the SQLite-compatible schema (`sqliteSchema.tenants`,
+  `.agents`, etc.) instead of the Postgres one when the URL starts with
+  `file:` or `sqlite:`. Service code that does
+  `import { contacts } from "@headless-crm/db"` automatically gets the
+  right table for the active backend.
+- `packages/db/src/client.ts` lazy-loads `better-sqlite3` (via
+  `createRequire`, so Postgres-only deploys never see the install) and
+  patches every prepared statement so `Date` params are serialized to
+  ISO strings before binding. (better-sqlite3 only accepts primitives +
+  Buffer + null.)
+- New `ilikeCompat` helper in `@headless-crm/db` replaces Drizzle's
+  Postgres-only `ilike` in the contacts/companies/cases services with
+  cross-backend `LOWER(col) LIKE LOWER(pattern)`.
+- All 25 tables now exist in both schemas (added `pipelineTriggers` to
+  the SQLite schema; regenerated migrations).
+- `bumped better-sqlite3` to `^12.9.0` for Node 25 support.
+
 ### Known limitations (intentionally deferred)
 
-- **SQLite is not a runtime backend.** Setup script + seed work, but
-  services statically import the Postgres schema with `defaultNow()`
-  which generates `NOW()` SQL that SQLite cannot execute. Setting
-  `DATABASE_URL=file:*` at runtime now throws with a clear error
-  pointing at Docker / Vercel as supported paths. Making SQLite a
-  real runtime backend requires a per-service schema-switching
-  refactor.
 - **30-day JWT expiry, no rotation list.** Suspending the agent is
   the only mitigation if a JWT leaks. Acceptable for now; documented.
+- **pgvector + Postgres-JSONB resend lookup don't run on SQLite.** Both
+  are documented as Postgres-only features.
 
 ### Documentation
 
