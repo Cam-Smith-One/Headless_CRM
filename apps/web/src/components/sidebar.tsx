@@ -61,6 +61,16 @@ const navItems = [
     ),
   },
   {
+    label: "Pipeline Triggers",
+    href: "/pipeline-triggers",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 8l3-3 4 4 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="13" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    ),
+  },
+  {
     label: "Cases",
     href: "/cases",
     icon: (

@@ -48,6 +48,39 @@ export function createActivitiesService(db: any, events: EventEmitter) {
       return record;
     },
 
+    async getById(ctx: CrmContext, id: string) {
+      const [record] = await db
+        .select()
+        .from(activities)
+        .where(and(eq(activities.id, id), eq(activities.tenantId, ctx.tenantId)));
+      return record ?? null;
+    },
+
+    /** List all activities for the caller's tenant, newest-first. */
+    async query(
+      ctx: CrmContext,
+      options: { limit?: number; offset?: number; type?: string } = {},
+    ): Promise<PaginatedResult<typeof activities.$inferSelect>> {
+      const limit = Math.min(options.limit ?? 50, 200);
+      const offset = options.offset ?? 0;
+      const where = and(
+        eq(activities.tenantId, ctx.tenantId),
+        options.type ? eq(activities.type, options.type as any) : undefined,
+      );
+      const data = await db
+        .select()
+        .from(activities)
+        .where(where)
+        .orderBy(desc(activities.occurredAt))
+        .limit(limit)
+        .offset(offset);
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(activities)
+        .where(where);
+      return { data, total: Number(count), limit, offset, hasMore: offset + data.length < Number(count) };
+    },
+
     async getByRecord(
       ctx: CrmContext,
       recordType: "contact" | "company" | "deal",

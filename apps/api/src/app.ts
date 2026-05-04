@@ -88,36 +88,96 @@ function errorResponse(c: any, e: any) {
 }
 
 // ---------------------------------------------------------------------------
-// In-memory sliding-window rate limiter
+// Rate limiter — Redis-backed when REDIS_URL is set, in-memory fallback otherwise.
+//
+// In-memory is per-instance, which is fine for self-hosted single-process
+// deploys but ineffective on Vercel where each cold start gets a fresh
+// counter (effective limit ~ N_instances × advertised limit). Redis gives
+// us a shared counter across all instances.
 // ---------------------------------------------------------------------------
+type LimitResult = {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+};
+
 class RateLimiter {
   private windows = new Map<string, { count: number; resetAt: number }>();
   private cleanupTimer: ReturnType<typeof setInterval>;
+  private redis: any = null;
+  private redisAttempted = false;
 
   constructor() {
-    // Purge expired entries every 60 s
     this.cleanupTimer = setInterval(() => {
       const now = Date.now();
       for (const [key, entry] of this.windows) {
         if (now >= entry.resetAt) this.windows.delete(key);
       }
     }, 60_000);
-    // Allow the process to exit without waiting for the timer
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
+  }
+
+  private getRedis(): any {
+    if (this.redisAttempted) return this.redis;
+    this.redisAttempted = true;
+    const url = process.env.REDIS_URL;
+    if (!url) return null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Redis = require("ioredis");
+      this.redis = new Redis(url, {
+        // Don't crash the request path on transient Redis failures —
+        // we'll fall through to in-memory if Redis is unhealthy.
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+      });
+      this.redis.on("error", (e: any) => {
+        console.warn("[rate-limit] Redis error, falling back to in-memory:", e.message);
+      });
+    } catch {
+      this.redis = null;
+    }
+    return this.redis;
   }
 
   /**
    * Returns { allowed, limit, remaining, resetAt (epoch ms) }.
+   * Atomic via Redis INCR+EXPIRE when available; per-instance Map otherwise.
    */
-  check(key: string, limit: number, windowMs: number) {
+  async check(key: string, limit: number, windowMs: number): Promise<LimitResult> {
+    const redis = this.getRedis();
     const now = Date.now();
-    let entry = this.windows.get(key);
+    if (redis) {
+      try {
+        const windowSec = Math.ceil(windowMs / 1000);
+        const redisKey = `rl:${key}`;
+        // INCR + (set EXPIRE only on first hit) in a pipeline.
+        const pipeline = redis.pipeline();
+        pipeline.incr(redisKey);
+        pipeline.pttl(redisKey);
+        const results = await pipeline.exec();
+        const count = Number(results?.[0]?.[1] ?? 0);
+        let pttl = Number(results?.[1]?.[1] ?? -1);
+        if (pttl < 0) {
+          // Key didn't have an expiry yet — set one. -1 means no TTL, -2 missing.
+          await redis.expire(redisKey, windowSec);
+          pttl = windowMs;
+        }
+        const resetAt = now + Math.max(0, pttl);
+        const allowed = count <= limit;
+        const remaining = Math.max(0, limit - count);
+        return { allowed, limit, remaining, resetAt };
+      } catch {
+        // Fall through to in-memory on any Redis failure.
+      }
+    }
 
+    let entry = this.windows.get(key);
     if (!entry || now >= entry.resetAt) {
       entry = { count: 0, resetAt: now + windowMs };
       this.windows.set(key, entry);
     }
-
     entry.count++;
     const remaining = Math.max(0, limit - entry.count);
     const allowed = entry.count <= limit;
@@ -251,7 +311,7 @@ export function createApp() {
       limit = UNAUTHENTICATED_LIMIT;
     }
 
-    const result = rateLimiter.check(key, limit, WINDOW_MS);
+    const result = await rateLimiter.check(key, limit, WINDOW_MS);
     const resetEpochSeconds = Math.ceil(result.resetAt / 1000);
 
     // Set rate limit headers on every response
@@ -713,6 +773,28 @@ export function createApp() {
   });
 
   // Activities
+  api.get("/activities", async (c) => {
+    try {
+      const limit = parseInt(c.req.query("limit") || "") || 50;
+      const offset = parseInt(c.req.query("offset") || "") || 0;
+      const type = c.req.query("type") ?? undefined;
+      const result = await getCRM().activities.query(c.get("ctx"), { limit, offset, type });
+      return c.json(result);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.get("/activities/:id", async (c) => {
+    try {
+      const record = await getCRM().activities.getById(c.get("ctx"), c.req.param("id"));
+      if (!record) return c.json({ error: "Activity not found" }, 404);
+      return c.json(record);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
   api.post("/activities", requireWrite, async (c) => {
     try {
       const record = await getCRM().activities.log(c.get("ctx"), await c.req.json());
@@ -1076,12 +1158,23 @@ export function createApp() {
     }
   });
 
-  // Inbound webhooks - receive data from external systems
+  // Inbound webhooks - receive data from external systems.
+  // Per-tenant rate limit (60/min) so an operator agent can't fan out
+  // unbounded inbound events through every subscribed outbound webhook —
+  // would otherwise be a self-DoS / abuse vector for third-party endpoints.
   api.post("/webhooks/inbound", requireWrite, async (c) => {
     try {
+      const ctx = c.get("ctx");
+      const limit = await rateLimiter.check(`inbound:${ctx.tenantId}`, 60, 60_000);
+      if (!limit.allowed) {
+        c.header("Retry-After", String(Math.ceil((limit.resetAt - Date.now()) / 1000)));
+        return c.json(
+          { error: "Inbound webhook rate limit exceeded for this tenant (60/min)" },
+          429,
+        );
+      }
       const parsed = await parseBody(c, inboundWebhookSchema);
       if (parsed instanceof Response) return parsed;
-      const ctx = c.get("ctx");
       const { source, eventType, data } = parsed;
       // Deliver to all outbound webhooks subscribed to inbound.* events
       const inboundEvent = {
