@@ -11,7 +11,17 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 
 import * as schema from "@headless-crm/db";
 import { getDb as getCentralDb } from "@headless-crm/db";
+// Static imports for drizzle helpers and schema tables that were previously
+// `require()`d inline. The package is ESM (`"type": "module"`); require() at
+// runtime throws ReferenceError outside of bundler-wrapped contexts.
+import { eq, and, desc, gte, sql, isNotNull, count } from "drizzle-orm";
 import { z } from "zod";
+
+// Re-bind a few schema tables as bare identifiers so existing route handlers
+// that reference them directly (without the `schema.` prefix) keep working.
+// These resolve to the active backend's tables via packages/db's conditional
+// re-export.
+const { crmEvents, agents, attachments } = schema;
 
 // ---------------------------------------------------------------------------
 // Route-input schemas — keep alongside the routes that use them.
@@ -823,8 +833,6 @@ export function createApp() {
   // Events (audit trail)
   api.get("/events", requireAudit, async (c) => {
     try {
-      const { desc, eq } = require("drizzle-orm");
-      const { crmEvents } = require("@headless-crm/db");
       const limit = Math.min(parseInt(c.req.query("limit") || "") || 50, 200);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const records = await getDb()
@@ -843,8 +851,6 @@ export function createApp() {
   // Agents management
   api.get("/agents", async (c) => {
     try {
-      const { eq } = require("drizzle-orm");
-      const { agents } = require("@headless-crm/db");
       // Explicitly select non-sensitive columns. Returning the full row
       // would leak `apiKey` (a sha256 hash of the bearer token) and
       // `metadata` may contain internal-only flags. The hashed key in
@@ -913,8 +919,6 @@ export function createApp() {
   // Agent logs — events filtered by agentId. Audit access only.
   api.get("/agents/:id/logs", requireAudit, async (c) => {
     try {
-      const { desc, eq, and, gte } = require("drizzle-orm");
-      const { crmEvents } = require("@headless-crm/db");
       const agentId = c.req.param("id");
       const tenantId = c.get("ctx").tenantId;
       const limit = Math.min(parseInt(c.req.query("limit") || "") || 50, 200);
@@ -945,15 +949,7 @@ export function createApp() {
   // Stats endpoint — aggregated counts for the dashboard
   api.get("/stats", async (c) => {
     try {
-    const { eq, and, gte, sql, count } = require("drizzle-orm");
-    const {
-      contacts,
-      companies,
-      deals,
-      cases,
-      agents,
-      crmEvents,
-    } = require("@headless-crm/db");
+    const { contacts, companies, deals, cases, agents, crmEvents } = schema;
     const tenantId = c.get("ctx").tenantId;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const todayStart = new Date();
@@ -1422,7 +1418,6 @@ export function createApp() {
       const arrayBuffer = await file.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString("base64");
 
-      const { attachments } = require("@headless-crm/db");
       const id = crypto.randomUUID();
       const [record] = await getDb().insert(attachments).values({
         id,
@@ -1451,8 +1446,6 @@ export function createApp() {
       if (!recordType || !recordId) {
         return c.json({ error: "recordType and recordId query params required" }, 400);
       }
-      const { eq, and } = require("drizzle-orm");
-      const { attachments } = require("@headless-crm/db");
       const records = await getDb()
         .select({
           id: attachments.id,
@@ -1483,8 +1476,6 @@ export function createApp() {
   api.get("/attachments/:id/download", async (c) => {
     try {
       const ctx = c.get("ctx");
-      const { eq, and } = require("drizzle-orm");
-      const { attachments } = require("@headless-crm/db");
       const [record] = await getDb()
         .select()
         .from(attachments)
@@ -1508,8 +1499,6 @@ export function createApp() {
   api.delete("/attachments/:id", requireDelete, async (c) => {
     try {
       const ctx = c.get("ctx");
-      const { eq, and } = require("drizzle-orm");
-      const { attachments } = require("@headless-crm/db");
       const [deleted] = await getDb()
         .delete(attachments)
         .where(

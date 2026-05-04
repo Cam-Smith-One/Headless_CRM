@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { getDb } from "@headless-crm/db";
+import { getDb, isSqlite } from "@headless-crm/db";
 import * as schema from "@headless-crm/db";
 
 /**
@@ -60,8 +60,11 @@ export const auth = betterAuth({
   secret: resolveBetterAuthSecret(),
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
 
+  // Switch the Better Auth Drizzle adapter's provider to match the active
+  // backend. Without this, signup/sign-in throws against a SQLite DATABASE_URL
+  // because the adapter generates Postgres-specific SQL.
   database: drizzleAdapter(getDb(), {
-    provider: "pg",
+    provider: isSqlite() ? "sqlite" : "pg",
     schema: {
       user: schema.users,
       session: schema.sessions,
