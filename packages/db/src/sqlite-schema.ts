@@ -162,6 +162,37 @@ export const pipelines = sqliteTable("pipelines", {
 });
 
 // ---------------------------------------------------------------------------
+// Pipeline triggers — auto-advance deal stages on email engagement.
+// ---------------------------------------------------------------------------
+export const pipelineTriggers = sqliteTable(
+  "pipeline_triggers",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    pipelineId: text("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id),
+    triggerEvent: text("trigger_event").notNull(),
+    fromStage: text("from_stage"),
+    toStage: text("to_stage").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("sqlt_pipeline_triggers_tenant_idx").on(table.tenantId),
+    index("sqlt_pipeline_triggers_pipeline_idx").on(table.pipelineId),
+    index("sqlt_pipeline_triggers_event_idx").on(table.tenantId, table.triggerEvent),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Deals
 // ---------------------------------------------------------------------------
 
