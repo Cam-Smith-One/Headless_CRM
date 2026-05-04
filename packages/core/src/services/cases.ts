@@ -1,5 +1,5 @@
 import { eq, and, ilike, sql } from "drizzle-orm";
-import { cases } from "@headless-crm/db";
+import { cases, contacts, companies, deals, agents } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
@@ -34,6 +34,29 @@ export function createCasesService(
         const { valid, errors } = await customFieldValidator(ctx, "cases", parsed.customFields);
         if (!valid) throw new Error(`Custom field validation failed: ${errors.join("; ")}`);
       }
+
+      // Validate every foreign-key reference belongs to caller's tenant — prevents
+      // attaching cases to records owned by another tenant.
+      const checks: Array<Promise<void>> = [];
+      const validateTenantFk = async (
+        table: any,
+        id: string | undefined,
+        label: string,
+      ) => {
+        if (!id) return;
+        const [row] = await db
+          .select({ id: table.id })
+          .from(table)
+          .where(and(eq(table.id, id), eq(table.tenantId, ctx.tenantId)))
+          .limit(1);
+        if (!row) throw new Error(`${label} ${id} not found`);
+      };
+      checks.push(validateTenantFk(contacts, parsed.contactId, "Contact"));
+      checks.push(validateTenantFk(companies, parsed.companyId, "Company"));
+      checks.push(validateTenantFk(deals, parsed.dealId, "Deal"));
+      checks.push(validateTenantFk(agents, parsed.assignedAgentId, "Agent"));
+      await Promise.all(checks);
+
       const id = nanoid();
 
       const [record] = await db

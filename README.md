@@ -135,11 +135,14 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 - **Vector Search** — semantic search via OpenAI text-embedding-3-small + pgvector
 
 ### Security
+- **MCP Role Enforcement** — every tool gated by `ctx.role`; readers/auditors can't write, operators can't delete, only developers can modify schema
+- **Tenant Isolation** — every query scoped by `tenantId`; foreign keys (contact, company, deal, agent) validated to belong to caller's tenant before insert
 - **Rate Limiting** — 100 req/min authenticated, 20 req/min unauthenticated
 - **CORS Lockdown** — configurable allowed origins
 - **Timing-safe Admin Key** — prevents timing attacks on admin endpoints
 - **MCP Session TTL** — automatic session cleanup (30min timeout)
-- **Webhook Replay Protection** — timestamp-based with configurable tolerance
+- **Webhook Replay Protection** — timestamp-based HMAC signing, configurable tolerance
+- **Resend Webhook Signing** — `RESEND_WEBHOOK_SECRET` required in production; unsigned requests rejected
 
 ### Dashboard
 - **Customizable Dashboard** — drag-and-drop widgets with localStorage persistence

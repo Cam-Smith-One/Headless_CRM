@@ -1,5 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
-import { deals, dealContacts } from "@headless-crm/db";
+import { deals, dealContacts, contacts } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
@@ -171,8 +171,17 @@ export function createDealsService(
     },
 
     async addContact(ctx: CrmContext, dealId: string, contactId: string) {
+      // Validate deal belongs to caller's tenant
       const deal = await this.getById(ctx, dealId);
       if (!deal) throw new Error(`Deal ${dealId} not found`);
+
+      // Validate contact belongs to caller's tenant — prevents cross-tenant FK injection
+      const [contact] = await db
+        .select({ id: contacts.id })
+        .from(contacts)
+        .where(and(eq(contacts.id, contactId), eq(contacts.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (!contact) throw new Error(`Contact ${contactId} not found`);
 
       await db.insert(dealContacts).values({ dealId, contactId }).onConflictDoNothing();
 
@@ -190,6 +199,7 @@ export function createDealsService(
     },
 
     async removeContact(ctx: CrmContext, dealId: string, contactId: string) {
+      // Validate deal belongs to caller's tenant
       const deal = await this.getById(ctx, dealId);
       if (!deal) throw new Error(`Deal ${dealId} not found`);
 
@@ -210,6 +220,11 @@ export function createDealsService(
     },
 
     async getContacts(ctx: CrmContext, dealId: string) {
+      // Validate the deal belongs to the caller's tenant before listing its contacts.
+      // Without this, anyone with a guessed dealId could read another tenant's contact list.
+      const deal = await this.getById(ctx, dealId);
+      if (!deal) throw new Error(`Deal ${dealId} not found`);
+
       const rows = await db.select().from(dealContacts).where(eq(dealContacts.dealId, dealId));
       return rows.map((r: any) => r.contactId);
     },

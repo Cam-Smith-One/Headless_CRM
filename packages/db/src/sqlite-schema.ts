@@ -99,9 +99,9 @@ export const companies = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_companies_tenant_idx").on(table.tenantId),
-    index("sqlite_companies_domain_idx").on(table.tenantId, table.domain),
-    index("sqlite_companies_parent_idx").on(table.parentCompanyId),
+    index("sqlt_companies_tenant_idx").on(table.tenantId),
+    index("sqlt_companies_domain_idx").on(table.tenantId, table.domain),
+    index("sqlt_companies_parent_idx").on(table.parentCompanyId),
   ]
 );
 
@@ -136,9 +136,9 @@ export const contacts = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_contacts_tenant_idx").on(table.tenantId),
-    index("sqlite_contacts_company_idx").on(table.companyId),
-    index("sqlite_contacts_email_idx").on(table.tenantId, table.email),
+    index("sqlt_contacts_tenant_idx").on(table.tenantId),
+    index("sqlt_contacts_company_idx").on(table.companyId),
+    index("sqlt_contacts_email_idx").on(table.tenantId, table.email),
   ]
 );
 
@@ -195,10 +195,10 @@ export const deals = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_deals_tenant_idx").on(table.tenantId),
-    index("sqlite_deals_pipeline_idx").on(table.pipelineId),
-    index("sqlite_deals_stage_idx").on(table.tenantId, table.stage),
-    index("sqlite_deals_company_idx").on(table.companyId),
+    index("sqlt_deals_tenant_idx").on(table.tenantId),
+    index("sqlt_deals_pipeline_idx").on(table.pipelineId),
+    index("sqlt_deals_stage_idx").on(table.tenantId, table.stage),
+    index("sqlt_deals_company_idx").on(table.companyId),
   ]
 );
 
@@ -215,8 +215,8 @@ export const dealContacts = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.dealId, table.contactId] }),
-    index("sqlite_deal_contacts_deal_idx").on(table.dealId),
-    index("sqlite_deal_contacts_contact_idx").on(table.contactId),
+    index("sqlt_deal_contacts_deal_idx").on(table.dealId),
+    index("sqlt_deal_contacts_contact_idx").on(table.contactId),
   ]
 );
 
@@ -248,11 +248,11 @@ export const activities = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_activities_tenant_idx").on(table.tenantId),
-    index("sqlite_activities_contact_idx").on(table.contactId),
-    index("sqlite_activities_company_idx").on(table.companyId),
-    index("sqlite_activities_deal_idx").on(table.dealId),
-    index("sqlite_activities_occurred_idx").on(table.tenantId, table.occurredAt),
+    index("sqlt_activities_tenant_idx").on(table.tenantId),
+    index("sqlt_activities_contact_idx").on(table.contactId),
+    index("sqlt_activities_company_idx").on(table.companyId),
+    index("sqlt_activities_deal_idx").on(table.dealId),
+    index("sqlt_activities_occurred_idx").on(table.tenantId, table.occurredAt),
   ]
 );
 
@@ -288,11 +288,11 @@ export const cases = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_cases_tenant_idx").on(table.tenantId),
-    index("sqlite_cases_status_idx").on(table.tenantId, table.status),
-    index("sqlite_cases_contact_idx").on(table.contactId),
-    index("sqlite_cases_company_idx").on(table.companyId),
-    index("sqlite_cases_assigned_agent_idx").on(table.assignedAgentId),
+    index("sqlt_cases_tenant_idx").on(table.tenantId),
+    index("sqlt_cases_status_idx").on(table.tenantId, table.status),
+    index("sqlt_cases_contact_idx").on(table.contactId),
+    index("sqlt_cases_company_idx").on(table.companyId),
+    index("sqlt_cases_assigned_agent_idx").on(table.assignedAgentId),
   ]
 );
 
@@ -319,10 +319,10 @@ export const crmEvents = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_crm_events_tenant_idx").on(table.tenantId),
-    index("sqlite_crm_events_record_idx").on(table.recordType, table.recordId),
-    index("sqlite_crm_events_type_idx").on(table.tenantId, table.eventType),
-    index("sqlite_crm_events_created_idx").on(table.tenantId, table.createdAt),
+    index("sqlt_crm_events_tenant_idx").on(table.tenantId),
+    index("sqlt_crm_events_record_idx").on(table.recordType, table.recordId),
+    index("sqlt_crm_events_type_idx").on(table.tenantId, table.eventType),
+    index("sqlt_crm_events_created_idx").on(table.tenantId, table.createdAt),
   ]
 );
 
@@ -350,7 +350,7 @@ export const webhooks = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
   },
-  (table) => [index("sqlite_webhooks_tenant_idx").on(table.tenantId)]
+  (table) => [index("sqlt_webhooks_tenant_idx").on(table.tenantId)]
 );
 
 export const webhookDeliveries = sqliteTable(
@@ -373,8 +373,8 @@ export const webhookDeliveries = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_webhook_deliveries_webhook_idx").on(table.webhookId),
-    index("sqlite_webhook_deliveries_status_idx").on(table.status),
+    index("sqlt_webhook_deliveries_webhook_idx").on(table.webhookId),
+    index("sqlt_webhook_deliveries_status_idx").on(table.status),
   ]
 );
 
@@ -406,9 +406,9 @@ export const customFieldDefinitions = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_cfd_tenant_idx").on(table.tenantId),
-    index("sqlite_cfd_collection_idx").on(table.tenantId, table.collection),
-    uniqueIndex("sqlite_cfd_tenant_collection_field").on(
+    index("sqlt_cfd_tenant_idx").on(table.tenantId),
+    index("sqlt_cfd_collection_idx").on(table.tenantId, table.collection),
+    uniqueIndex("sqlt_cfd_tenant_collection_field").on(
       table.tenantId,
       table.collection,
       table.fieldName
@@ -445,9 +445,9 @@ export const approvals = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_approvals_tenant_id_idx").on(table.tenantId),
-    index("sqlite_approvals_status_idx").on(table.status),
-    index("sqlite_approvals_requested_by_agent_id_idx").on(
+    index("sqlt_approvals_tenant_id_idx").on(table.tenantId),
+    index("sqlt_approvals_status_idx").on(table.status),
+    index("sqlt_approvals_requested_by_agent_id_idx").on(
       table.requestedByAgentId
     ),
   ]
@@ -476,9 +476,9 @@ export const notifications = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_notifications_tenant_id_idx").on(table.tenantId),
-    index("sqlite_notifications_tenant_read_idx").on(table.tenantId, table.read),
-    index("sqlite_notifications_created_at_idx").on(table.createdAt),
+    index("sqlt_notifications_tenant_id_idx").on(table.tenantId),
+    index("sqlt_notifications_tenant_read_idx").on(table.tenantId, table.read),
+    index("sqlt_notifications_created_at_idx").on(table.createdAt),
   ]
 );
 
@@ -506,8 +506,8 @@ export const attachments = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_attachments_tenant_idx").on(table.tenantId),
-    index("sqlite_attachments_record_idx").on(
+    index("sqlt_attachments_tenant_idx").on(table.tenantId),
+    index("sqlt_attachments_record_idx").on(
       table.tenantId,
       table.recordType,
       table.recordId
@@ -543,8 +543,8 @@ export const recordTags = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.tagId, table.recordId, table.recordType] }),
-    index("sqlite_record_tags_tag_idx").on(table.tagId),
-    index("sqlite_record_tags_record_idx").on(table.recordId, table.recordType),
+    index("sqlt_record_tags_tag_idx").on(table.tagId),
+    index("sqlt_record_tags_record_idx").on(table.recordId, table.recordType),
   ]
 );
 
@@ -574,9 +574,9 @@ export const agentMemories = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index("sqlite_agent_memories_tenant_idx").on(table.tenantId),
-    index("sqlite_agent_memories_agent_idx").on(table.agentId),
-    index("sqlite_agent_memories_subject_idx").on(
+    index("sqlt_agent_memories_tenant_idx").on(table.tenantId),
+    index("sqlt_agent_memories_agent_idx").on(table.agentId),
+    index("sqlt_agent_memories_subject_idx").on(
       table.subjectType,
       table.subjectId
     ),
