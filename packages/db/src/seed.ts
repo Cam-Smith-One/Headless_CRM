@@ -1,13 +1,44 @@
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
 import { nanoid } from "nanoid";
-import * as schema from "./schema/index";
+
+// Detect which DB backend to use based on DATABASE_URL.
+// `file:./foo.db` → SQLite via better-sqlite3.
+// Anything else → Postgres via postgres-js.
+const DATABASE_URL = process.env.DATABASE_URL ?? "";
+const isSqlite = DATABASE_URL.startsWith("file:") || DATABASE_URL.startsWith("sqlite:");
+
+async function getDbAndSchema(): Promise<{ db: any; schema: any; close: () => Promise<void> }> {
+  if (isSqlite) {
+    const path = DATABASE_URL.replace(/^(?:file:|sqlite:)/, "") || "./headless-crm.db";
+    const [{ default: Database }, { drizzle }, schema] = await Promise.all([
+      import("better-sqlite3"),
+      import("drizzle-orm/better-sqlite3"),
+      import("./sqlite-schema"),
+    ]);
+    const sqlite = new Database(path);
+    sqlite.pragma("journal_mode = WAL");
+    sqlite.pragma("foreign_keys = ON");
+    return {
+      db: drizzle(sqlite, { schema }),
+      schema,
+      close: async () => { sqlite.close(); },
+    };
+  }
+  const [{ default: postgres }, { drizzle }, schema] = await Promise.all([
+    import("postgres"),
+    import("drizzle-orm/postgres-js"),
+    import("./schema/index"),
+  ]);
+  const client = postgres(DATABASE_URL);
+  return { db: drizzle(client, { schema }), schema, close: async () => client.end() };
+}
 
 async function seed() {
-  const client = postgres(process.env.DATABASE_URL!);
-  const db = drizzle(client, { schema });
-
-  console.log("Seeding database...");
+  if (!DATABASE_URL) {
+    console.error("DATABASE_URL is not set. For SQLite use: DATABASE_URL=file:./headless-crm.db");
+    process.exit(1);
+  }
+  const { db, schema, close } = await getDbAndSchema();
+  console.log(`Seeding database (${isSqlite ? "SQLite" : "Postgres"})...`);
 
   // Tenant
   const tenantId = "tenant_demo";
@@ -76,16 +107,22 @@ async function seed() {
     { triggerEvent: "email.clicked", fromStage: "Qualified", toStage: "Discovery" },
     { triggerEvent: "email.replied", fromStage: null, toStage: "Discovery" },
   ];
-  for (const td of triggerDefs) {
-    await db.insert(schema.pipelineTriggers).values({
-      id: `trig_${nanoid(8)}`,
-      tenantId,
-      pipelineId,
-      triggerEvent: td.triggerEvent,
-      fromStage: td.fromStage,
-      toStage: td.toStage,
-      active: true,
-    }).onConflictDoNothing();
+  // pipelineTriggers may not exist in SQLite schema (Postgres-only feature for now);
+  // skip silently in that mode rather than crashing the seed.
+  if (schema.pipelineTriggers) {
+    for (const td of triggerDefs) {
+      await db.insert(schema.pipelineTriggers).values({
+        id: `trig_${nanoid(8)}`,
+        tenantId,
+        pipelineId,
+        triggerEvent: td.triggerEvent,
+        fromStage: td.fromStage,
+        toStage: td.toStage,
+        active: true,
+      }).onConflictDoNothing();
+    }
+  } else {
+    console.log("  (pipelineTriggers table not in this schema — skipping)");
   }
 
   // Companies
@@ -183,7 +220,7 @@ async function seed() {
   console.log(`  Deals: ${dealData.length}`);
   console.log(`  Cases: ${caseData.length}`);
 
-  await client.end();
+  await close();
 }
 
 seed().catch(console.error);

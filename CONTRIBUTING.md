@@ -48,6 +48,16 @@ npm run dev
 
 The API runs on `http://localhost:3001` and the web UI on `http://localhost:3000`.
 
+The setup script:
+- Installs npm deps (force-installs `better-sqlite3` if the optional dep was skipped)
+- Writes `DATABASE_URL=file:./headless-crm.db` to `.env`
+- Generates and applies SQLite migrations
+- Seeds 5 companies, 5 contacts, 5 deals, 4 cases, 4 agents
+
+> Note: a few Postgres-only features (semantic vector search via pgvector,
+> pipeline auto-advance triggers) are skipped in SQLite mode. Everything else
+> — REST API, MCP tools, agent auth, webhooks, custom fields — works fully.
+
 ## Project Structure
 
 ```

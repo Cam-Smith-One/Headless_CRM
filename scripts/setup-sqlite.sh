@@ -86,6 +86,12 @@ fi
 # ── 3. Install dependencies ───────────────────────────────────────────────────
 info "Installing npm dependencies (including optional better-sqlite3)..."
 npm install
+# Force-install better-sqlite3 in case the optional dep was skipped (native build,
+# platform mismatch, or npm bug #4828). The SQLite path requires it.
+if [ ! -d "node_modules/better-sqlite3" ]; then
+  info "Installing better-sqlite3 explicitly (was skipped as optional)..."
+  npm install --no-save better-sqlite3@^12.9.0
+fi
 success "Dependencies installed"
 
 # ── 4. Generate SQLite migrations ─────────────────────────────────────────────

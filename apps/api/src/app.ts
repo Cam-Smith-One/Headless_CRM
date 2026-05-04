@@ -56,7 +56,6 @@ const rateLimiter = new RateLimiter();
 const RATE_LIMIT_EXEMPT = new Set([
   "/api/setup/status",
   "/.well-known/mcp.json",
-  "/api/.well-known/mcp.json",
 ]);
 
 const WINDOW_MS = 60_000; // 1 minute
@@ -1317,38 +1316,49 @@ export function createApp() {
   app.post("/webhooks/resend", async (c) => {
     try {
       const signingSecret = process.env.RESEND_WEBHOOK_SECRET;
-      if (signingSecret) {
-        // Verify Resend HMAC-SHA256 signature
-        const signature = c.req.header("svix-signature") ?? c.req.header("resend-signature");
-        const rawBody = await c.req.text();
-        if (!signature) {
-          return c.json({ error: "Missing signature" }, 401);
+      const isProduction = process.env.NODE_ENV === "production";
+
+      // In production, RESEND_WEBHOOK_SECRET is REQUIRED. Without it, an
+      // attacker with a guessed resendId could spoof email events and advance
+      // pipelines. Refuse unsigned webhooks in prod outright.
+      if (!signingSecret) {
+        if (isProduction) {
+          return c.json(
+            { error: "Webhook signing not configured: set RESEND_WEBHOOK_SECRET" },
+            501,
+          );
         }
-        const hmac = createHash("sha256")
-          .update(signingSecret)
-          .update(rawBody)
-          .digest("hex");
-        const expectedSig = `v1,${hmac}`;
-        // svix sends multiple signatures in "v1,xxx v1,yyy" format; check any match
-        const sigs = signature.split(" ");
-        const valid = sigs.some((s) => {
-          try {
-            return timingSafeEqual(Buffer.from(s), Buffer.from(expectedSig));
-          } catch {
-            return false;
-          }
-        });
-        if (!valid) {
-          return c.json({ error: "Invalid signature" }, 401);
-        }
-        // Parse body we already read
-        const body = JSON.parse(rawBody);
-        return handleResendEvent(c, body);
-      } else {
-        // No secret configured — accept the event (dev/testing)
+        // Dev/test only: accept unsigned events to make local iteration easier.
         const body = await c.req.json();
         return handleResendEvent(c, body);
       }
+
+      // Verify Resend HMAC-SHA256 signature
+      const signature = c.req.header("svix-signature") ?? c.req.header("resend-signature");
+      const rawBody = await c.req.text();
+      if (!signature) {
+        return c.json({ error: "Missing signature" }, 401);
+      }
+      const hmac = createHash("sha256")
+        .update(signingSecret)
+        .update(rawBody)
+        .digest("hex");
+      const expectedSig = `v1,${hmac}`;
+      // svix sends multiple signatures in "v1,xxx v1,yyy" format; check any match
+      const sigs = signature.split(" ");
+      const valid = sigs.some((s) => {
+        try {
+          return timingSafeEqual(Buffer.from(s), Buffer.from(expectedSig));
+        } catch {
+          return false;
+        }
+      });
+      if (!valid) {
+        return c.json({ error: "Invalid signature" }, 401);
+      }
+      // Parse body we already read
+      const body = JSON.parse(rawBody);
+      return handleResendEvent(c, body);
     } catch (e: any) {
       return c.json({ error: e.message }, 400);
     }
@@ -1520,7 +1530,8 @@ export function createApp() {
     });
   };
   app.get("/.well-known/mcp.json", mcpDiscovery);
-  app.get("/api/.well-known/mcp.json", mcpDiscovery);
+  // Note: /api/.well-known/mcp.json is intentionally NOT registered here —
+  // it would be shadowed by the auth-gated /api group. Use /.well-known/mcp.json.
 
   return app;
 }

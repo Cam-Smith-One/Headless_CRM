@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "95962cbc-372a-4817-bb10-73e3bc969186",
+  "id": "e3670a03-20ad-4441-9046-5aad96f03899",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -220,36 +220,36 @@
         }
       },
       "indexes": {
-        "sqlite_activities_tenant_idx": {
-          "name": "sqlite_activities_tenant_idx",
+        "sqlt_activities_tenant_idx": {
+          "name": "sqlt_activities_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_activities_contact_idx": {
-          "name": "sqlite_activities_contact_idx",
+        "sqlt_activities_contact_idx": {
+          "name": "sqlt_activities_contact_idx",
           "columns": [
             "contact_id"
           ],
           "isUnique": false
         },
-        "sqlite_activities_company_idx": {
-          "name": "sqlite_activities_company_idx",
+        "sqlt_activities_company_idx": {
+          "name": "sqlt_activities_company_idx",
           "columns": [
             "company_id"
           ],
           "isUnique": false
         },
-        "sqlite_activities_deal_idx": {
-          "name": "sqlite_activities_deal_idx",
+        "sqlt_activities_deal_idx": {
+          "name": "sqlt_activities_deal_idx",
           "columns": [
             "deal_id"
           ],
           "isUnique": false
         },
-        "sqlite_activities_occurred_idx": {
-          "name": "sqlite_activities_occurred_idx",
+        "sqlt_activities_occurred_idx": {
+          "name": "sqlt_activities_occurred_idx",
           "columns": [
             "tenant_id",
             "occurred_at"
@@ -413,22 +413,22 @@
         }
       },
       "indexes": {
-        "sqlite_agent_memories_tenant_idx": {
-          "name": "sqlite_agent_memories_tenant_idx",
+        "sqlt_agent_memories_tenant_idx": {
+          "name": "sqlt_agent_memories_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_agent_memories_agent_idx": {
-          "name": "sqlite_agent_memories_agent_idx",
+        "sqlt_agent_memories_agent_idx": {
+          "name": "sqlt_agent_memories_agent_idx",
           "columns": [
             "agent_id"
           ],
           "isUnique": false
         },
-        "sqlite_agent_memories_subject_idx": {
-          "name": "sqlite_agent_memories_subject_idx",
+        "sqlt_agent_memories_subject_idx": {
+          "name": "sqlt_agent_memories_subject_idx",
           "columns": [
             "subject_type",
             "subject_id"
@@ -717,22 +717,22 @@
         }
       },
       "indexes": {
-        "sqlite_approvals_tenant_id_idx": {
-          "name": "sqlite_approvals_tenant_id_idx",
+        "sqlt_approvals_tenant_id_idx": {
+          "name": "sqlt_approvals_tenant_id_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_approvals_status_idx": {
-          "name": "sqlite_approvals_status_idx",
+        "sqlt_approvals_status_idx": {
+          "name": "sqlt_approvals_status_idx",
           "columns": [
             "status"
           ],
           "isUnique": false
         },
-        "sqlite_approvals_requested_by_agent_id_idx": {
-          "name": "sqlite_approvals_requested_by_agent_id_idx",
+        "sqlt_approvals_requested_by_agent_id_idx": {
+          "name": "sqlt_approvals_requested_by_agent_id_idx",
           "columns": [
             "requested_by_agent_id"
           ],
@@ -841,15 +841,15 @@
         }
       },
       "indexes": {
-        "sqlite_attachments_tenant_idx": {
-          "name": "sqlite_attachments_tenant_idx",
+        "sqlt_attachments_tenant_idx": {
+          "name": "sqlt_attachments_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_attachments_record_idx": {
-          "name": "sqlite_attachments_record_idx",
+        "sqlt_attachments_record_idx": {
+          "name": "sqlt_attachments_record_idx",
           "columns": [
             "tenant_id",
             "record_type",
@@ -1019,37 +1019,37 @@
         }
       },
       "indexes": {
-        "sqlite_cases_tenant_idx": {
-          "name": "sqlite_cases_tenant_idx",
+        "sqlt_cases_tenant_idx": {
+          "name": "sqlt_cases_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_cases_status_idx": {
-          "name": "sqlite_cases_status_idx",
+        "sqlt_cases_status_idx": {
+          "name": "sqlt_cases_status_idx",
           "columns": [
             "tenant_id",
             "status"
           ],
           "isUnique": false
         },
-        "sqlite_cases_contact_idx": {
-          "name": "sqlite_cases_contact_idx",
+        "sqlt_cases_contact_idx": {
+          "name": "sqlt_cases_contact_idx",
           "columns": [
             "contact_id"
           ],
           "isUnique": false
         },
-        "sqlite_cases_company_idx": {
-          "name": "sqlite_cases_company_idx",
+        "sqlt_cases_company_idx": {
+          "name": "sqlt_cases_company_idx",
           "columns": [
             "company_id"
           ],
           "isUnique": false
         },
-        "sqlite_cases_assigned_agent_idx": {
-          "name": "sqlite_cases_assigned_agent_idx",
+        "sqlt_cases_assigned_agent_idx": {
+          "name": "sqlt_cases_assigned_agent_idx",
           "columns": [
             "assigned_agent_id"
           ],
@@ -1260,23 +1260,23 @@
         }
       },
       "indexes": {
-        "sqlite_companies_tenant_idx": {
-          "name": "sqlite_companies_tenant_idx",
+        "sqlt_companies_tenant_idx": {
+          "name": "sqlt_companies_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_companies_domain_idx": {
-          "name": "sqlite_companies_domain_idx",
+        "sqlt_companies_domain_idx": {
+          "name": "sqlt_companies_domain_idx",
           "columns": [
             "tenant_id",
             "domain"
           ],
           "isUnique": false
         },
-        "sqlite_companies_parent_idx": {
-          "name": "sqlite_companies_parent_idx",
+        "sqlt_companies_parent_idx": {
+          "name": "sqlt_companies_parent_idx",
           "columns": [
             "parent_company_id"
           ],
@@ -1442,22 +1442,22 @@
         }
       },
       "indexes": {
-        "sqlite_contacts_tenant_idx": {
-          "name": "sqlite_contacts_tenant_idx",
+        "sqlt_contacts_tenant_idx": {
+          "name": "sqlt_contacts_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_contacts_company_idx": {
-          "name": "sqlite_contacts_company_idx",
+        "sqlt_contacts_company_idx": {
+          "name": "sqlt_contacts_company_idx",
           "columns": [
             "company_id"
           ],
           "isUnique": false
         },
-        "sqlite_contacts_email_idx": {
-          "name": "sqlite_contacts_email_idx",
+        "sqlt_contacts_email_idx": {
+          "name": "sqlt_contacts_email_idx",
           "columns": [
             "tenant_id",
             "email"
@@ -1601,31 +1601,31 @@
         }
       },
       "indexes": {
-        "sqlite_crm_events_tenant_idx": {
-          "name": "sqlite_crm_events_tenant_idx",
+        "sqlt_crm_events_tenant_idx": {
+          "name": "sqlt_crm_events_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_crm_events_record_idx": {
-          "name": "sqlite_crm_events_record_idx",
+        "sqlt_crm_events_record_idx": {
+          "name": "sqlt_crm_events_record_idx",
           "columns": [
             "record_type",
             "record_id"
           ],
           "isUnique": false
         },
-        "sqlite_crm_events_type_idx": {
-          "name": "sqlite_crm_events_type_idx",
+        "sqlt_crm_events_type_idx": {
+          "name": "sqlt_crm_events_type_idx",
           "columns": [
             "tenant_id",
             "event_type"
           ],
           "isUnique": false
         },
-        "sqlite_crm_events_created_idx": {
-          "name": "sqlite_crm_events_created_idx",
+        "sqlt_crm_events_created_idx": {
+          "name": "sqlt_crm_events_created_idx",
           "columns": [
             "tenant_id",
             "created_at"
@@ -1753,23 +1753,23 @@
         }
       },
       "indexes": {
-        "sqlite_cfd_tenant_idx": {
-          "name": "sqlite_cfd_tenant_idx",
+        "sqlt_cfd_tenant_idx": {
+          "name": "sqlt_cfd_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_cfd_collection_idx": {
-          "name": "sqlite_cfd_collection_idx",
+        "sqlt_cfd_collection_idx": {
+          "name": "sqlt_cfd_collection_idx",
           "columns": [
             "tenant_id",
             "collection"
           ],
           "isUnique": false
         },
-        "sqlite_cfd_tenant_collection_field": {
-          "name": "sqlite_cfd_tenant_collection_field",
+        "sqlt_cfd_tenant_collection_field": {
+          "name": "sqlt_cfd_tenant_collection_field",
           "columns": [
             "tenant_id",
             "collection",
@@ -1823,15 +1823,15 @@
         }
       },
       "indexes": {
-        "sqlite_deal_contacts_deal_idx": {
-          "name": "sqlite_deal_contacts_deal_idx",
+        "sqlt_deal_contacts_deal_idx": {
+          "name": "sqlt_deal_contacts_deal_idx",
           "columns": [
             "deal_id"
           ],
           "isUnique": false
         },
-        "sqlite_deal_contacts_contact_idx": {
-          "name": "sqlite_deal_contacts_contact_idx",
+        "sqlt_deal_contacts_contact_idx": {
+          "name": "sqlt_deal_contacts_contact_idx",
           "columns": [
             "contact_id"
           ],
@@ -2007,30 +2007,30 @@
         }
       },
       "indexes": {
-        "sqlite_deals_tenant_idx": {
-          "name": "sqlite_deals_tenant_idx",
+        "sqlt_deals_tenant_idx": {
+          "name": "sqlt_deals_tenant_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_deals_pipeline_idx": {
-          "name": "sqlite_deals_pipeline_idx",
+        "sqlt_deals_pipeline_idx": {
+          "name": "sqlt_deals_pipeline_idx",
           "columns": [
             "pipeline_id"
           ],
           "isUnique": false
         },
-        "sqlite_deals_stage_idx": {
-          "name": "sqlite_deals_stage_idx",
+        "sqlt_deals_stage_idx": {
+          "name": "sqlt_deals_stage_idx",
           "columns": [
             "tenant_id",
             "stage"
           ],
           "isUnique": false
         },
-        "sqlite_deals_company_idx": {
-          "name": "sqlite_deals_company_idx",
+        "sqlt_deals_company_idx": {
+          "name": "sqlt_deals_company_idx",
           "columns": [
             "company_id"
           ],
@@ -2309,23 +2309,23 @@
         }
       },
       "indexes": {
-        "sqlite_notifications_tenant_id_idx": {
-          "name": "sqlite_notifications_tenant_id_idx",
+        "sqlt_notifications_tenant_id_idx": {
+          "name": "sqlt_notifications_tenant_id_idx",
           "columns": [
             "tenant_id"
           ],
           "isUnique": false
         },
-        "sqlite_notifications_tenant_read_idx": {
-          "name": "sqlite_notifications_tenant_read_idx",
+        "sqlt_notifications_tenant_read_idx": {
+          "name": "sqlt_notifications_tenant_read_idx",
           "columns": [
             "tenant_id",
             "read"
           ],
           "isUnique": false
         },
-        "sqlite_notifications_created_at_idx": {
-          "name": "sqlite_notifications_created_at_idx",
+        "sqlt_notifications_created_at_idx": {
+          "name": "sqlt_notifications_created_at_idx",
           "columns": [
             "created_at"
           ],
@@ -2445,15 +2445,15 @@
         }
       },
       "indexes": {
-        "sqlite_record_tags_tag_idx": {
-          "name": "sqlite_record_tags_tag_idx",
+        "sqlt_record_tags_tag_idx": {
+          "name": "sqlt_record_tags_tag_idx",
           "columns": [
             "tag_id"
           ],
           "isUnique": false
         },
-        "sqlite_record_tags_record_idx": {
-          "name": "sqlite_record_tags_record_idx",
+        "sqlt_record_tags_record_idx": {
+          "name": "sqlt_record_tags_record_idx",
           "columns": [
             "record_id",
             "record_type"
@@ -2956,15 +2956,15 @@
         }
       },
       "indexes": {
-        "sqlite_webhook_deliveries_webhook_idx": {
-          "name": "sqlite_webhook_deliveries_webhook_idx",
+        "sqlt_webhook_deliveries_webhook_idx": {
+          "name": "sqlt_webhook_deliveries_webhook_idx",
           "columns": [
             "webhook_id"
           ],
           "isUnique": false
         },
-        "sqlite_webhook_deliveries_status_idx": {
-          "name": "sqlite_webhook_deliveries_status_idx",
+        "sqlt_webhook_deliveries_status_idx": {
+          "name": "sqlt_webhook_deliveries_status_idx",
           "columns": [
             "status"
           ],
@@ -3081,8 +3081,8 @@
         }
       },
       "indexes": {
-        "sqlite_webhooks_tenant_idx": {
-          "name": "sqlite_webhooks_tenant_idx",
+        "sqlt_webhooks_tenant_idx": {
+          "name": "sqlt_webhooks_tenant_idx",
           "columns": [
             "tenant_id"
           ],

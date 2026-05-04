@@ -14,7 +14,7 @@
     "build": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "seed": "tsx src/seed.ts",
+    "seed": "tsx --env-file=../../.env src/seed.ts",
     "generate:sqlite": "drizzle-kit generate --config=drizzle-sqlite.config.ts",
     "migrate:sqlite": "drizzle-kit migrate --config=drizzle-sqlite.config.ts"
   },
@@ -25,7 +25,7 @@
     "nanoid": "^5.0.0"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
