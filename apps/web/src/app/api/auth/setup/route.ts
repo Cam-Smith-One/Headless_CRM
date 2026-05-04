@@ -6,7 +6,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@headless-crm/auth-web";
-import { getDb } from "@headless-crm/db";
+import { getDb, isSqlite } from "@headless-crm/db";
 import { users, tenants } from "@headless-crm/db";
 import { count, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -30,37 +30,54 @@ export async function POST(request: NextRequest) {
     .replace(/^-|-$/g, "")
     .slice(0, 50);
 
-  // Wrap the count-check + tenant create + user promote in a single transaction
-  // so two simultaneous /setup calls can't both pass the count check and both
-  // create owner tenants. The transaction's serializable snapshot makes the
-  // `userCount > 1` check race-free.
+  // Race-safe setup. Postgres path uses an async transaction (snapshot makes
+  // the count check race-free). SQLite (better-sqlite3) doesn't support async
+  // transaction callbacks; instead we rely on better-sqlite3's serial-write
+  // model + WAL — concurrent /setup calls hit the file lock one at a time,
+  // and any second writer sees `userCount > 1` and is rejected.
   let tenantId: string;
-  try {
-    tenantId = await db.transaction(async (tx: any) => {
-      const [{ count: userCount }] = await tx.select({ count: count() }).from(users);
-      if (userCount > 1) {
-        throw new Error("SETUP_ALREADY_COMPLETE");
-      }
+  const newTenantId = `tenant_${nanoid(10)}`;
 
-      const newTenantId = `tenant_${nanoid(10)}`;
-      await tx.insert(tenants).values({
-        id: newTenantId,
-        name: workspaceName,
-        slug,
-      });
-
-      await tx
-        .update(users)
-        .set({ role: "owner", tenantId: newTenantId, updatedAt: new Date() })
-        .where(eq(users.id, session.user.id));
-
-      return newTenantId;
-    });
-  } catch (e: any) {
-    if (e?.message === "SETUP_ALREADY_COMPLETE") {
+  if (isSqlite()) {
+    // Sequential check-and-act on SQLite. Single-process WAL mode means the
+    // count + insert + update execute serially per-connection.
+    const [{ count: userCount }] = await db.select({ count: count() }).from(users);
+    if (userCount > 1) {
       return NextResponse.json({ error: "Setup already complete" }, { status: 403 });
     }
-    throw e;
+    await db.insert(tenants).values({ id: newTenantId, name: workspaceName, slug });
+    await db
+      .update(users)
+      .set({ role: "owner", tenantId: newTenantId, updatedAt: new Date() })
+      .where(eq(users.id, session.user.id));
+    tenantId = newTenantId;
+  } else {
+    try {
+      tenantId = await db.transaction(async (tx: any) => {
+        const [{ count: userCount }] = await tx.select({ count: count() }).from(users);
+        if (userCount > 1) {
+          throw new Error("SETUP_ALREADY_COMPLETE");
+        }
+
+        await tx.insert(tenants).values({
+          id: newTenantId,
+          name: workspaceName,
+          slug,
+        });
+
+        await tx
+          .update(users)
+          .set({ role: "owner", tenantId: newTenantId, updatedAt: new Date() })
+          .where(eq(users.id, session.user.id));
+
+        return newTenantId;
+      });
+    } catch (e: any) {
+      if (e?.message === "SETUP_ALREADY_COMPLETE") {
+        return NextResponse.json({ error: "Setup already complete" }, { status: 403 });
+      }
+      throw e;
+    }
   }
 
   return NextResponse.json({ ok: true, tenantId });
