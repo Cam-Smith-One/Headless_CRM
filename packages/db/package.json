@@ -15,8 +15,8 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "seed": "tsx --env-file=../../.env src/seed.ts",
-    "generate:sqlite": "drizzle-kit generate --config=drizzle-sqlite.config.ts",
-    "migrate:sqlite": "drizzle-kit migrate --config=drizzle-sqlite.config.ts"
+    "generate:sqlite": "node --env-file-if-exists=../../.env ../../node_modules/drizzle-kit/bin.cjs generate --config=drizzle-sqlite.config.ts",
+    "migrate:sqlite": "node --env-file-if-exists=../../.env ../../node_modules/drizzle-kit/bin.cjs migrate --config=drizzle-sqlite.config.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.39.0",

@@ -1,4 +1,4 @@
-import { timingSafeEqual, createHash } from "crypto";
+import { timingSafeEqual, createHash, createHmac } from "crypto";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -9,9 +9,8 @@ import { createMCPServer } from "@headless-crm/mcp-server";
 import { getOpenAPISpec } from "./openapi";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import * as schema from "@headless-crm/db";
+import { getDb as getCentralDb } from "@headless-crm/db";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -145,8 +144,9 @@ let _events: EventBus | null = null;
 
 function getDb() {
   if (!_db) {
-    const client = postgres(process.env.DATABASE_URL!);
-    _db = drizzle(client, { schema });
+    // Delegate to the central client which auto-detects file: → SQLite,
+    // anything else → Postgres. Keeps the local-dev SQLite path real.
+    _db = getCentralDb();
   }
   return _db;
 }
@@ -1462,6 +1462,13 @@ export function createApp() {
     return c.html(html);
   });
 
+  // Public webhook endpoints (NO auth middleware). Registered BEFORE the
+  // /api group mount so they don't get shadowed by the auth-gated sub-app.
+  // Both paths reach the same handler — Vercel forwards /api/* to Hono,
+  // direct deploys can use /webhooks/* root paths.
+  app.post("/webhooks/resend", resendWebhookHandler);
+  app.post("/api/webhooks/resend", resendWebhookHandler);
+
   app.route("/api", api);
 
   // ---------------------------------------------------------------------------
@@ -1470,7 +1477,11 @@ export function createApp() {
   // email.clicked, email.delivered. We look up the matching deal via
   // the resendId stored in activity metadata and fire pipeline triggers.
   // ---------------------------------------------------------------------------
-  app.post("/webhooks/resend", async (c) => {
+  // Shared handler for the resend webhook so it can be registered at BOTH
+  // `/webhooks/resend` (legacy / direct host access) and `/api/webhooks/resend`
+  // (Vercel forwards `/api/*` to the Hono app — without this prefix the route
+  // is unreachable in production).
+  async function resendWebhookHandler(c: any) {
     try {
       const signingSecret = process.env.RESEND_WEBHOOK_SECRET;
       const isProduction = process.env.NODE_ENV === "production";
@@ -1490,26 +1501,57 @@ export function createApp() {
         return handleResendEvent(c, body);
       }
 
-      // Verify Resend HMAC-SHA256 signature
+      // Verify Resend / Svix signature.
+      // Svix uses HMAC-SHA256 of `${msg_id}.${timestamp}.${body}` with the secret
+      // (stripped of its `whsec_` prefix). We accept both the strict Svix scheme
+      // and the simple HMAC(secret, body) variant Resend documents directly.
       const signature = c.req.header("svix-signature") ?? c.req.header("resend-signature");
+      const svixId = c.req.header("svix-id");
+      const svixTimestamp = c.req.header("svix-timestamp");
       const rawBody = await c.req.text();
       if (!signature) {
         return c.json({ error: "Missing signature" }, 401);
       }
-      const hmac = createHash("sha256")
-        .update(signingSecret)
-        .update(rawBody)
-        .digest("hex");
-      const expectedSig = `v1,${hmac}`;
+
+      // The secret may be prefixed with `whsec_` per Svix convention; strip it.
+      const secretBytes = signingSecret.startsWith("whsec_")
+        ? Buffer.from(signingSecret.slice("whsec_".length), "base64")
+        : Buffer.from(signingSecret, "utf8");
+
+      // Compute Svix-style signature if id+timestamp present, else fall back
+      // to plain HMAC(secret, body).
+      const candidates: string[] = [];
+      if (svixId && svixTimestamp) {
+        const toSign = `${svixId}.${svixTimestamp}.${rawBody}`;
+        candidates.push(
+          "v1," + createHmac("sha256", secretBytes).update(toSign).digest("base64"),
+        );
+        // Some integrations encode hex; accept that too.
+        candidates.push(
+          "v1," + createHmac("sha256", secretBytes).update(toSign).digest("hex"),
+        );
+      }
+      candidates.push(
+        "v1," + createHmac("sha256", secretBytes).update(rawBody).digest("hex"),
+      );
+      candidates.push(
+        "v1," + createHmac("sha256", secretBytes).update(rawBody).digest("base64"),
+      );
+
       // svix sends multiple signatures in "v1,xxx v1,yyy" format; check any match
       const sigs = signature.split(" ");
-      const valid = sigs.some((s) => {
-        try {
-          return timingSafeEqual(Buffer.from(s), Buffer.from(expectedSig));
-        } catch {
-          return false;
-        }
-      });
+      const valid = sigs.some((s: string) =>
+        candidates.some((cand: string) => {
+          try {
+            return (
+              s.length === cand.length &&
+              timingSafeEqual(Buffer.from(s), Buffer.from(cand))
+            );
+          } catch {
+            return false;
+          }
+        }),
+      );
       if (!valid) {
         return c.json({ error: "Invalid signature" }, 401);
       }
@@ -1519,7 +1561,9 @@ export function createApp() {
     } catch (e: any) {
       return c.json({ error: e.message }, 400);
     }
-  });
+  }
+
+  // (registrations moved to before app.route("/api", api) below)
 
   async function handleResendEvent(c: any, body: any) {
     // Resend webhook event shape: { type: "email.opened", data: { email_id: "...", ... } }

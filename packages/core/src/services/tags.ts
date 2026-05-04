@@ -1,5 +1,13 @@
 import { eq, and } from "drizzle-orm";
-import { tags, recordTags } from "@headless-crm/db";
+import {
+  tags,
+  recordTags,
+  contacts,
+  companies,
+  deals,
+  cases,
+  activities,
+} from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter } from "../types";
@@ -90,12 +98,38 @@ export function createTagsService(db: any, events: EventEmitter) {
       return { deleted: true };
     },
 
-    /** Attach a tag to a record. Validates the tag belongs to the caller's tenant. */
+    /**
+     * Attach a tag to a record. Validates BOTH that the tag and the target
+     * record belong to the caller's tenant. Without recordId tenant
+     * validation an attacker could create orphan join rows pointing at
+     * records they don't own.
+     */
     async attach(ctx: CrmContext, input: AttachTagInput) {
       const parsed = attachTagSchema.parse(input);
-      // Tenant-scope the tag — prevents cross-tenant FK injection.
+      // Tenant-scope the tag.
       const tag = await this.getById(ctx, parsed.tagId);
       if (!tag) throw new Error(`Tag ${parsed.tagId} not found`);
+
+      // Tenant-scope the target record.
+      const tableForType: Record<string, any> = {
+        contacts,
+        companies,
+        deals,
+        cases,
+        activities,
+      };
+      const table = tableForType[parsed.recordType];
+      if (!table) {
+        throw new Error(
+          `Unsupported recordType '${parsed.recordType}'. Allowed: ${Object.keys(tableForType).join(", ")}`,
+        );
+      }
+      const [row] = await db
+        .select({ id: table.id })
+        .from(table)
+        .where(and(eq(table.id, parsed.recordId), eq(table.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (!row) throw new Error(`${parsed.recordType} record ${parsed.recordId} not found`);
 
       await db
         .insert(recordTags)

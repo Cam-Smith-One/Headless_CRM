@@ -62,12 +62,14 @@ if [ ! -f ".env" ]; then
   if [ -f ".env.example" ]; then
     cp .env.example .env
     success ".env created from .env.example"
-    # Override DATABASE_URL for SQLite mode
-    # Append a SQLite-specific override so it takes precedence
+    # Override DATABASE_URL for SQLite mode.
+    # Use an ABSOLUTE path so the same DATABASE_URL works whether commands
+    # run from the repo root, packages/db (drizzle-kit), or apps/api.
+    SQLITE_PATH="$REPO_ROOT/headless-crm.db"
     echo "" >> .env
     echo "# SQLite mode (overrides the Postgres DATABASE_URL above)" >> .env
-    echo "DATABASE_URL=file:./headless-crm.db" >> .env
-    success "DATABASE_URL set to SQLite path (file:./headless-crm.db)"
+    echo "DATABASE_URL=file:$SQLITE_PATH" >> .env
+    success "DATABASE_URL set to SQLite path (file:$SQLITE_PATH)"
     warn "Review .env and fill in any required secrets before use."
   else
     error ".env.example not found. Cannot create .env."

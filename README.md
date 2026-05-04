@@ -48,7 +48,7 @@ Result: Contact created (id: c_xK9mPq2r)
 
 ## Quick Start
 
-> **Builder / agent framework user?** Use [Option 2 (SQLite)](#option-2-sqlite-no-docker-needed) — no Docker, no external DB, runs in under a minute. Works great with Claude, OpenClaw, Hermes, and any MCP client.
+> **Builder / agent framework user?** Use [Option 1 (PostgreSQL via Docker)](#option-1-one-command-setup-postgresql) for full local-dev, or [Option 4 (Vercel + Neon)](#option-4-deploy-to-vercel) for a fully-managed agent-first deploy. SQLite is supported only for offline data-model inspection (Option 2).
 
 ### Option 1: One-Command Setup (PostgreSQL)
 
@@ -66,18 +66,32 @@ Then:
 npm run dev    # API on :3001, Dashboard on :3000
 ```
 
-### Option 2: SQLite (no Docker needed)
+### Option 2: SQLite (data-model exploration only)
 
-**Simplest for local dev and agent integrations.** No external dependencies — just Node.js.
+> ⚠️ **SQLite is NOT a runtime backend yet.** The setup script will install
+> deps, apply migrations, and seed demo data into a SQLite database, which
+> is useful for inspecting the schema and seed data offline. But the API
+> server itself currently only runs against Postgres at runtime — services
+> import the Postgres schema (with `defaultNow()` etc.) which generates
+> `NOW()` SQL that SQLite cannot execute. Use Option 1 (Docker) or Option 4
+> (Vercel + Neon) to actually run the app.
 
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
 cd Headless_CRM
-./scripts/setup-sqlite.sh
-npm start      # API on :3001 with SQLite
+./scripts/setup-sqlite.sh   # creates ./headless-crm.db with seeded data
 ```
 
-> Note: SQLite mode disables pgvector semantic search. All other features — MCP tools, REST API, webhooks, agent auth — work fully.
+What this gives you:
+- A populated SQLite file at `./headless-crm.db` you can inspect with
+  any SQLite tool (5 companies, 5 contacts, 5 deals, 4 cases, 4 agents).
+- All migrations applied (`packages/db/drizzle-sqlite/`).
+- A working `db:seed` script for SQLite.
+
+What it does NOT give you:
+- A running API server. `npm run dev` against this DB will fail.
+- pgvector semantic search.
+- Pipeline auto-advance triggers (the table is Postgres-only).
 
 ### Option 3: Docker Compose (full stack)
 
