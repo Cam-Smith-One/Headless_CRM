@@ -48,7 +48,7 @@ Result: Contact created (id: c_xK9mPq2r)
 
 ## Quick Start
 
-> **Builder / agent framework user?** Use [Option 1 (PostgreSQL via Docker)](#option-1-one-command-setup-postgresql) for full local-dev, or [Option 4 (Vercel + Neon)](#option-4-deploy-to-vercel) for a fully-managed agent-first deploy. SQLite is supported only for offline data-model inspection (Option 2).
+> **Builder / agent framework user?** Use [Option 2 (SQLite)](#option-2-sqlite-no-docker--full-runtime) — no Docker, no external DB, runs in under a minute. The full API + MCP transport + UI all work against SQLite. Great with Claude, OpenClaw, Hermes, and any MCP client.
 
 ### Option 1: One-Command Setup (PostgreSQL)
 
@@ -66,32 +66,34 @@ Then:
 npm run dev    # API on :3001, Dashboard on :3000
 ```
 
-### Option 2: SQLite (data-model exploration only)
+### Option 2: SQLite (no Docker — full runtime)
 
-> ⚠️ **SQLite is NOT a runtime backend yet.** The setup script will install
-> deps, apply migrations, and seed demo data into a SQLite database, which
-> is useful for inspecting the schema and seed data offline. But the API
-> server itself currently only runs against Postgres at runtime — services
-> import the Postgres schema (with `defaultNow()` etc.) which generates
-> `NOW()` SQL that SQLite cannot execute. Use Option 1 (Docker) or Option 4
-> (Vercel + Neon) to actually run the app.
+**Simplest for local dev and agent integrations.** No external dependencies — just Node.js. The full API server, web UI, and MCP transport all run against SQLite.
 
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
 cd Headless_CRM
-./scripts/setup-sqlite.sh   # creates ./headless-crm.db with seeded data
+./scripts/setup-sqlite.sh   # creates ./headless-crm.db, applies migrations, seeds demo data
+npm run dev                 # API on :3001, dashboard on :3000
 ```
 
-What this gives you:
-- A populated SQLite file at `./headless-crm.db` you can inspect with
-  any SQLite tool (5 companies, 5 contacts, 5 deals, 4 cases, 4 agents).
-- All migrations applied (`packages/db/drizzle-sqlite/`).
-- A working `db:seed` script for SQLite.
+How it works:
+- Setup script writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`.
+- `packages/db/src/index.ts` detects the `file:` URL at module-load and
+  re-exports the SQLite-compatible schema; `getDb()` uses `better-sqlite3`.
+- A driver-level patch converts `Date` params to ISO strings before binding
+  (better-sqlite3 only accepts primitives + Buffer + null).
+- Everything else (REST, MCP tools, agent auth, webhooks, custom fields,
+  tags, pipeline triggers) works identically across both backends.
 
-What it does NOT give you:
-- A running API server. `npm run dev` against this DB will fail.
-- pgvector semantic search.
-- Pipeline auto-advance triggers (the table is Postgres-only).
+Postgres-only features in SQLite mode:
+- **Vector search** (`/api/search/semantic`) — depends on pgvector. Falls
+  back to keyword search.
+- **Resend email-engagement triggers** — the metadata-JSON SQL filter uses
+  the Postgres JSONB `->>` operator. The webhook itself works; the
+  cross-tenant lookup query is Postgres-specific.
+
+Both are documented limitations; everything else is feature-equivalent.
 
 ### Option 3: Docker Compose (full stack)
 

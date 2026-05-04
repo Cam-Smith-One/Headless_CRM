@@ -37,29 +37,41 @@ npm run db:seed
 npm run dev
 ```
 
-### Option B: SQLite (data-model exploration only — does NOT run the app)
-
-> ⚠️ The runtime API requires Postgres. SQLite is supported only for
-> migrations + seed (so you can inspect the data model offline). Running
-> `npm run dev` against a SQLite DATABASE_URL will throw at startup —
-> services use the Postgres schema with `defaultNow()` which generates
-> `NOW()` SQL that SQLite cannot execute. To actually run the app locally,
-> use Option A (Docker + Postgres).
+### Option B: SQLite (no Docker — full runtime)
 
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
 cd Headless_CRM
-./scripts/setup-sqlite.sh    # creates seeded headless-crm.db
+./scripts/setup-sqlite.sh
+npm run dev
 ```
+
+The API runs on `http://localhost:3001`, the web UI on `http://localhost:3000`. All CRUD, agent auth, MCP tools, and webhooks work.
 
 The setup script:
 - Installs npm deps (force-installs `better-sqlite3` if the optional dep was skipped)
 - Writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`
-- Generates and applies SQLite migrations to the seeded `headless-crm.db`
+- Generates and applies SQLite migrations
 - Seeds 5 companies, 5 contacts, 5 deals, 4 cases, 4 agents
 
-After this, you can open the `.db` file with any SQLite browser to explore
-the schema and data. To run the app, switch to Postgres.
+How the cross-backend support works:
+- `packages/db/src/index.ts` detects the `file:` URL at module-load time
+  and re-exports the SQLite-compatible schema instead of the Postgres one.
+- `packages/db/src/client.ts` (`getDb`/`getClient`) uses `better-sqlite3` +
+  the SQLite schema in that mode.
+- A driver-level patch converts `Date` params to ISO strings before binding
+  (better-sqlite3 only accepts primitives + Buffer + null).
+- Service code uses Drizzle helpers that work on both backends. The few
+  Postgres-only operators (`ilike`) have a `ilikeCompat` cross-backend
+  helper exported from `@headless-crm/db`.
+
+Postgres-only features in SQLite mode:
+- pgvector semantic search.
+- Resend webhook metadata-JSON SQL filter (the webhook delivers; the
+  cross-tenant resendId lookup uses `metadata->>'resendId'` which is
+  Postgres JSONB-specific).
+
+Everything else is feature-equivalent.
 
 ## Project Structure
 

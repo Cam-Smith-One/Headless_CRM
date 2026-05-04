@@ -1,4 +1,5 @@
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { ilikeCompat } from "@headless-crm/db";
 import { companies, crmEvents } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -147,7 +148,7 @@ export function createCompaniesService(
         eq(companies.tenantId, ctx.tenantId),
         eq(companies.stateCode, "active"),
         escapedSearch
-          ? ilike(
+          ? ilikeCompat(
               sql`COALESCE(${companies.name}, '') || ' ' || COALESCE(${companies.domain}, '')`,
               `%${escapedSearch}%`
             )

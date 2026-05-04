@@ -274,7 +274,12 @@ async function authenticate(c: any, next: any) {
     const ctx = await getAuth().resolveContext(header.slice(7));
     c.set("ctx", ctx);
     await next();
-  } catch {
+  } catch (e: any) {
+    // Log the underlying reason at info level so SQLite mode (or any auth-path
+    // schema mismatch) is debuggable. The client still sees a generic 401.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[auth] resolveContext failed: ${e?.message ?? e}`);
+    }
     return c.json({ error: "Invalid or expired token" }, 401);
   }
 }
