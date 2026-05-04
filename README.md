@@ -20,7 +20,7 @@
 
 Traditional CRMs were designed for humans clicking buttons. Headless CRM is designed for **AI agents making API calls**.
 
-- **MCP-native** — 18+ tools via the Model Context Protocol. Connect Claude, Cursor, or any MCP client in seconds.
+- **MCP-native** — 28+ tools via the Model Context Protocol. Connect Claude, Cursor, or any MCP client in seconds.
 - **Agent identity** — Every agent gets its own API key, JWT, role, and audit trail. No more repurposing user accounts for bots.
 - **Event-sourced** — Every mutation tracked with before/after diffs. Full audit trail, webhook notifications, approval workflows.
 - **Self-hostable** — Docker, SQLite single-binary, or one-click Vercel deploy. Your data stays yours.
@@ -134,7 +134,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 - **Entity Relationships** — contacts ↔ companies ↔ deals ↔ cases with full linkage
 
 ### Agent Platform
-- **MCP-native** — 18+ tools for AI agent access via Streamable HTTP or stdio
+- **MCP-native** — 28+ tools for AI agent access via Streamable HTTP or stdio
 - **Agent Identity** — unique API keys (`hcrm_sk_...`), JWT-based auth, full lifecycle management
 - **RBAC** — four roles (reader, operator, developer, auditor) enforced at API middleware level
 - **Human Approval Workflows** — agent provisioning and dangerous actions require human approval
@@ -230,7 +230,7 @@ headless-crm/
 │   ├── auth/           Agent JWT auth, RBAC, agent lifecycle
 │   ├── auth-web/       Human user auth (Better Auth, cookie sessions, OAuth)
 │   ├── events/         Event bus (Redis Streams or in-memory fallback)
-│   ├── mcp-server/     MCP server with 18+ tools
+│   ├── mcp-server/     MCP server with 28+ tools
 │   └── cli/            CLI entry point (npx headless-crm start)
 ├── scripts/            Setup & provisioning scripts
 ├── docker-compose.yml  PostgreSQL + API + Web (full stack)
@@ -245,7 +245,7 @@ headless-crm/
 
 ## MCP Integration
 
-AI agents connect via the Model Context Protocol. The server exposes 18+ tools:
+AI agents connect via the Model Context Protocol. The server exposes 28+ tools:
 
 | Tool | Description | Write |
 |------|-------------|-------|
@@ -271,6 +271,12 @@ AI agents connect via the Model Context Protocol. The server exposes 18+ tools:
 | `crm_deal_add_contact` | Link a contact to a deal | Yes |
 | `crm_deal_remove_contact` | Unlink a contact from a deal | Yes |
 | `crm_deal_get_contacts` | List contacts linked to a deal | No |
+| `crm_tag_list` | List tags in the tenant (filterable by objectType) | No |
+| `crm_tag_create` | Create a new tag | Yes |
+| `crm_tag_delete` | Delete a tag and all its attachments | Yes (developer) |
+| `crm_tag_attach` | Attach a tag to a record | Yes |
+| `crm_tag_detach` | Detach a tag from a record | Yes |
+| `crm_tag_list_for_record` | List tags attached to a specific record | No |
 
 ### Connecting via Streamable HTTP
 
@@ -339,8 +345,19 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `GET/PATCH/DELETE` | `/api/pipelines/:id` | Get / Update / Delete |
 | **Activities** | | |
 | `GET/POST` | `/api/activities` | List / Log (supports `type` filter) |
+| `GET` | `/api/activities/:id` | Get a single activity |
+| **Tags** | | |
+| `GET/POST` | `/api/tags` | List / Create (supports `objectType` filter) |
+| `DELETE` | `/api/tags/:id` | Delete a tag |
+| `POST` | `/api/tags/attach` | Attach tag to record |
+| `POST` | `/api/tags/detach` | Detach tag from record |
+| `GET` | `/api/tags/record/:type/:id` | List tags for a record |
+| **Pipeline Triggers** | | |
+| `GET/POST` | `/api/pipeline-triggers` | List / Create auto-advance rule |
+| `GET/PATCH/DELETE` | `/api/pipeline-triggers/:id` | Get / Update / Delete |
 | **Events** | | |
-| `GET` | `/api/events` | Audit trail (supports `limit`, `offset`) |
+| `GET` | `/api/events` | Audit trail (auditor or developer; supports `limit`, `offset`) |
+| `GET` | `/api/agents/:id/logs` | Per-agent action log (auditor or developer) |
 | **Agents** | | |
 | `GET/POST` | `/api/agents` | List / Provision |
 | `POST` | `/api/agents/provision` | Bootstrap provision (Admin Key) |
@@ -351,7 +368,8 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `GET/PATCH/DELETE` | `/api/webhooks/:id` | Get / Update / Delete |
 | `GET` | `/api/webhooks/:id/deliveries` | Delivery history |
 | `POST` | `/api/webhooks/:id/test` | Send test event |
-| `POST` | `/api/webhooks/inbound` | Receive external data |
+| `POST` | `/api/webhooks/inbound` | Receive external data (60/min/tenant) |
+| `POST` | `/api/webhooks/resend` | Resend email-engagement webhook (HMAC-signed; `RESEND_WEBHOOK_SECRET` required in prod) |
 | **Custom Fields** | | |
 | `GET/POST` | `/api/custom-fields` | List / Define |
 | `GET/PATCH/DELETE` | `/api/custom-fields/:id` | Get / Update / Delete |
@@ -384,12 +402,26 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 
 ## RBAC Roles
 
-| Role | Read | Create/Update | Delete | Manage Schema |
-|------|------|---------------|--------|---------------|
-| `reader` | Yes | No | No | No |
-| `operator` | Yes | Yes | No | No |
-| `developer` | Yes | Yes | Yes | Yes |
-| `auditor` | Yes (audit-scoped) | No | No | No |
+| Role | Read CRM | Create/Update | Delete | Manage Schema | Read audit trail |
+|------|----------|---------------|--------|---------------|------------------|
+| `reader` | Yes | No | No | No | No |
+| `operator` | Yes | Yes | No | No | No |
+| `developer` | Yes | Yes | Yes | Yes | Yes |
+| `auditor` | Yes | No | No | No | Yes |
+
+`auditor` is read-only across CRM data **plus** the audit trail (`GET /api/events`,
+`GET /api/agents/:id/logs`). Reader and operator cannot read the audit trail —
+that gating prevents agents from enumerating each other's actions.
+
+Role enforcement happens at three layers:
+- **API routes** — `requireWrite` / `requireDelete` / `requireManage` /
+  `requireAudit` middleware in `apps/api/src/app.ts`.
+- **MCP tools** — every tool is gated by `ctx.role` in
+  `packages/mcp-server/src/index.ts` against the tool's `annotations.readOnly`
+  / `annotations.destructive` flags before execute.
+- **Service layer** — every service filters by `ctx.tenantId` and validates
+  any FK reference (contactId, companyId, dealId, agentId) belongs to the
+  caller's tenant before mutation.
 
 ---
 
