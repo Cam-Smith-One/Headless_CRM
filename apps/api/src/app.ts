@@ -28,6 +28,17 @@ const provisionAgentSchema = z.object({
   collections: z.array(z.string()).optional(),
 }).strict();
 
+// Admin bootstrap path: same fields as provisionAgentSchema PLUS tenantId
+// (because there's no JWT context to derive it from).
+const adminProvisionAgentSchema = z.object({
+  name: z.string().min(1).max(200),
+  tenantId: z.string().min(1).max(200),
+  type: z.enum(["autonomous", "supervised", "scheduled", "reactive"]).optional(),
+  role: z.enum(["reader", "operator", "developer", "auditor"]).optional(),
+  ownerUserId: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+}).strict();
+
 const inboundWebhookSchema = z.object({
   source: z.string().min(1).max(200),
   eventType: z.string().min(1).max(200),
@@ -352,14 +363,14 @@ export function createApp() {
     if (!isValid) {
       return c.json({ error: "Invalid or missing admin key" }, 403);
     }
-    const body = await c.req.json();
-    if (!body.name || !body.tenantId) {
-      return c.json({ error: "name and tenantId are required" }, 400);
-    }
-    const result = await getAuth().provisionAgent(body.tenantId, {
-      name: body.name,
-      type: body.type,
-      role: body.role,
+    const parsed = await parseBody(c, adminProvisionAgentSchema);
+    if (parsed instanceof Response) return parsed;
+    const result = await getAuth().provisionAgent(parsed.tenantId, {
+      name: parsed.name,
+      type: parsed.type,
+      role: parsed.role,
+      ownerUserId: parsed.ownerUserId,
+      metadata: parsed.metadata,
     });
     return c.json(result, 201);
   });
@@ -534,7 +545,7 @@ export function createApp() {
       const result = await getCRM().deals.addContact(c.get("ctx"), c.req.param("id"), contactId);
       return c.json(result, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -543,7 +554,7 @@ export function createApp() {
       const result = await getCRM().deals.removeContact(c.get("ctx"), c.req.param("id"), c.req.param("contactId"));
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -829,7 +840,27 @@ export function createApp() {
     try {
       const { eq } = require("drizzle-orm");
       const { agents } = require("@headless-crm/db");
-      const records = await getDb().select().from(agents).where(eq(agents.tenantId, c.get("ctx").tenantId));
+      // Explicitly select non-sensitive columns. Returning the full row
+      // would leak `apiKey` (a sha256 hash of the bearer token) and
+      // `metadata` may contain internal-only flags. The hashed key in
+      // particular is rate-limited as a low-severity exposure today,
+      // but there's no reason to ever return it from this endpoint.
+      const records = await getDb()
+        .select({
+          id: agents.id,
+          tenantId: agents.tenantId,
+          name: agents.name,
+          type: agents.type,
+          role: agents.role,
+          status: agents.status,
+          ownerUserId: agents.ownerUserId,
+          metadata: agents.metadata,
+          lastActiveAt: agents.lastActiveAt,
+          createdAt: agents.createdAt,
+          updatedAt: agents.updatedAt,
+        })
+        .from(agents)
+        .where(eq(agents.tenantId, c.get("ctx").tenantId));
       return c.json(records);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -982,7 +1013,7 @@ export function createApp() {
       const record = await getCRM().pipelineTriggers.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -1000,7 +1031,7 @@ export function createApp() {
       const record = await getCRM().pipelineTriggers.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -1030,7 +1061,7 @@ export function createApp() {
       const record = await getCRM().tags.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -1049,7 +1080,7 @@ export function createApp() {
       const result = await getCRM().tags.attach(c.get("ctx"), body);
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -1059,7 +1090,7 @@ export function createApp() {
       const result = await getCRM().tags.detach(c.get("ctx"), body);
       return c.json(result);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -1197,7 +1228,7 @@ export function createApp() {
       );
       return c.json({ received: true, deliveredTo: active.length, results });
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   });
 
@@ -1652,7 +1683,7 @@ export function createApp() {
       const body = JSON.parse(rawBody);
       return handleResendEvent(c, body);
     } catch (e: any) {
-      return c.json({ error: e.message }, 400);
+      return errorResponse(c, e);
     }
   }
 
