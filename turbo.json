@@ -27,6 +27,9 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
+    "@headless-crm/cli#build": {
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true

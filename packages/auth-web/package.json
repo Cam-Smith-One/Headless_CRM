@@ -13,7 +13,7 @@
   "dependencies": {
     "@headless-crm/db": "*",
     "better-auth": "^1.2.0",
-    "drizzle-orm": "^0.39.0"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

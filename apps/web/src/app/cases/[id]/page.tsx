@@ -39,6 +39,7 @@ export default function CaseDetailPage() {
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -83,11 +84,13 @@ export default function CaseDetailPage() {
       description: cas.description || "",
     });
     setCustomFieldValues(normalizeCustomFields(cas.customFields));
+    setError(null);
     setEditing(true);
   }
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
       const payload: any = { ...editForm };
       if (Object.keys(customFieldValues).length > 0) {
@@ -96,7 +99,7 @@ export default function CaseDetailPage() {
       const updated = await apiPatch(`/api/cases/${id}`, payload, token);
       setCas(updated);
       setEditing(false);
-    } catch { /* handle error */ } finally { setSaving(false); }
+    } catch (e: any) { setError(e?.message ?? "Failed to save case"); } finally { setSaving(false); }
   }
 
   async function handleDelete() {
@@ -104,7 +107,7 @@ export default function CaseDetailPage() {
     try {
       await apiDelete(`/api/cases/${id}`, token);
       router.push("/cases");
-    } catch { /* handle error */ }
+    } catch (e: any) { setError(e?.message ?? "Failed to delete case"); }
   }
 
   if (loading) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading...</div>;
@@ -143,6 +146,7 @@ export default function CaseDetailPage() {
         <Card className="mb-6">
           <CardContent className="p-4 space-y-3">
             <h3 className="text-xs font-medium text-muted-foreground">Edit Case</h3>
+            {error && <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
             <div>
               <label className="text-xs text-muted-foreground">Title</label>
               <input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm" value={editForm.title || ""} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />

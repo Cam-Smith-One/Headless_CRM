@@ -58,10 +58,24 @@ success "npm $(npm --version) ✓"
 cd "$REPO_ROOT"
 
 info "Checking .env file..."
+generate_secret() {
+  node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+}
+
+replace_env_value() {
+  KEY="$1"
+  VALUE="$2"
+  node -e "const fs=require('fs');const p='.env';const key=process.argv[1];const value=process.argv[2];let s=fs.readFileSync(p,'utf8');const line=key+'='+value;if(new RegExp('^'+key+'=.*$','m').test(s)){s=s.replace(new RegExp('^'+key+'=.*$','m'),line)}else{s+='\\n'+line+'\\n'}fs.writeFileSync(p,s)" "$KEY" "$VALUE"
+}
+
 if [ ! -f ".env" ]; then
   if [ -f ".env.example" ]; then
     cp .env.example .env
     success ".env created from .env.example"
+    replace_env_value "JWT_SECRET" "$(generate_secret)"
+    replace_env_value "BETTER_AUTH_SECRET" "$(generate_secret)"
+    replace_env_value "ADMIN_API_KEY" "$(generate_secret)"
+    success "Generated strong local secrets"
     # Override DATABASE_URL for SQLite mode.
     # Use an ABSOLUTE path so the same DATABASE_URL works whether commands
     # run from the repo root, packages/db (drizzle-kit), or apps/api.
@@ -70,7 +84,7 @@ if [ ! -f ".env" ]; then
     echo "# SQLite mode (overrides the Postgres DATABASE_URL above)" >> .env
     echo "DATABASE_URL=file:$SQLITE_PATH" >> .env
     success "DATABASE_URL set to SQLite path (file:$SQLITE_PATH)"
-    warn "Review .env and fill in any required secrets before use."
+    warn "Review .env before sharing or deploying."
   else
     error ".env.example not found. Cannot create .env."
   fi
@@ -84,6 +98,8 @@ else
     warn "For SQLite mode, set:  DATABASE_URL=file:./headless-crm.db"
   fi
 fi
+
+node -e "const fs=require('fs'),crypto=require('crypto');const p='.env';let s=fs.readFileSync(p,'utf8');const weak=new Set(['','change-me-in-production','change-me-in-production-32chars!!','dev-only-change-me-in-production-32chars!!']);for(const key of ['JWT_SECRET','BETTER_AUTH_SECRET','ADMIN_API_KEY']){const m=s.match(new RegExp('^'+key+'=(.*)$','m'));const value=m?m[1]:'';if(value.length<32||weak.has(value)){const next=crypto.randomBytes(32).toString('base64url');const line=key+'='+next;if(m)s=s.replace(new RegExp('^'+key+'=.*$','m'),line);else s+='\\n'+line+'\\n';console.log('[setup] Rotated weak '+key);}}fs.writeFileSync(p,s)"
 
 # ── 3. Install dependencies ───────────────────────────────────────────────────
 info "Installing npm dependencies (including optional better-sqlite3)..."

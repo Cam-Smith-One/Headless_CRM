@@ -18,6 +18,10 @@
     "db:seed": "npm run seed -w packages/db",
     "setup": "./scripts/setup.sh",
     "setup:sqlite": "./scripts/setup-sqlite.sh",
+    "selfhost:check": "node scripts/doctor-selfhost.mjs",
+    "selfhost:sqlite": "node scripts/selfhost-sqlite.mjs",
+    "sqlite:backup": "./scripts/backup-sqlite.sh",
+    "sqlite:restore": "./scripts/restore-sqlite.sh",
     "start": "npx tsx packages/cli/src/index.ts"
   },
   "devDependencies": {
@@ -27,6 +31,12 @@
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",
     "@tailwindcss/oxide-linux-x64-musl": "4.2.1"
+  },
+  "overrides": {
+    "postcss": "^8.5.14",
+    "next": {
+      "postcss": "^8.5.14"
+    }
   },
   "license": "AGPL-3.0",
   "description": "The open-source CRM built for AI agents. MCP-native, API-first, self-hostable."

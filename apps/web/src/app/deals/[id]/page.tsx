@@ -24,6 +24,7 @@ export default function DealDetailPage() {
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -57,11 +58,13 @@ export default function DealDetailPage() {
       value: deal.value?.toString() || "",
     });
     setCustomFieldValues(normalizeCustomFields(deal.customFields));
+    setError(null);
     setEditing(true);
   }
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
       const payload: any = { ...editForm };
       if (payload.value) payload.value = Number(payload.value);
@@ -71,7 +74,7 @@ export default function DealDetailPage() {
       const updated = await apiPatch(`/api/deals/${id}`, payload, token);
       setDeal(updated);
       setEditing(false);
-    } catch { /* handle error */ } finally { setSaving(false); }
+    } catch (e: any) { setError(e?.message ?? "Failed to save deal"); } finally { setSaving(false); }
   }
 
   async function handleDelete() {
@@ -79,7 +82,7 @@ export default function DealDetailPage() {
     try {
       await apiDelete(`/api/deals/${id}`, token);
       router.push("/deals");
-    } catch { /* handle error */ }
+    } catch (e: any) { setError(e?.message ?? "Failed to delete deal"); }
   }
 
   if (loading) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading...</div>;
@@ -116,6 +119,7 @@ export default function DealDetailPage() {
         <Card className="mb-6">
           <CardContent className="p-4 space-y-3">
             <h3 className="text-xs font-medium text-muted-foreground">Edit Deal</h3>
+            {error && <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
             {(["name", "stage", "value"] as const).map((field) => (
               <div key={field}>
                 <label className="text-xs text-muted-foreground capitalize">{field}</label>

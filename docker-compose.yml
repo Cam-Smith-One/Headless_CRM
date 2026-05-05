@@ -37,9 +37,11 @@ services:
     environment:
       DATABASE_URL: postgresql://headless:headless@postgres:5432/headless_crm
       REDIS_URL: ${REDIS_URL:-}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PORT: "3001"
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me-in-production}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY in .env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-crm@headless-crm.dev}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -58,7 +60,9 @@ services:
     environment:
       HOSTNAME: "0.0.0.0"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
     depends_on:
       - api
 

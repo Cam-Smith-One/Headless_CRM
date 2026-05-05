@@ -27,6 +27,7 @@ export default function ContactDetailPage() {
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadEmails = useCallback(() => {
     apiFetch<any>(`/api/activities?contactId=${id}&type=email`, { token })
@@ -92,11 +93,13 @@ export default function ContactDetailPage() {
       title: contact.title || "",
     });
     setCustomFieldValues(normalizeCustomFields(contact.customFields));
+    setError(null);
     setEditing(true);
   }
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
       const payload: Record<string, unknown> = { ...editForm };
       if (Object.keys(customFieldValues).length > 0) {
@@ -105,8 +108,8 @@ export default function ContactDetailPage() {
       const updated = await apiPatch(`/api/contacts/${id}`, payload, token);
       setContact(updated);
       setEditing(false);
-    } catch {
-      // handle error
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save contact");
     } finally {
       setSaving(false);
     }
@@ -117,8 +120,8 @@ export default function ContactDetailPage() {
     try {
       await apiDelete(`/api/contacts/${id}`, token);
       router.push("/contacts");
-    } catch {
-      // handle error
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete contact");
     }
   }
 
@@ -156,6 +159,7 @@ export default function ContactDetailPage() {
         <Card className="mb-6">
           <CardContent className="p-4 space-y-3">
             <h3 className="text-xs font-medium text-muted-foreground">Edit Contact</h3>
+            {error && <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
             {(["firstName", "lastName", "email", "phone", "title"] as const).map((field) => (
               <div key={field}>
                 <label className="text-xs text-muted-foreground capitalize">{field.replace(/([A-Z])/g, " $1")}</label>

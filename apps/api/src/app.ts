@@ -10,7 +10,7 @@ import { getOpenAPISpec } from "./openapi";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import * as schema from "@headless-crm/db";
-import { getDb as getCentralDb, isSqlite } from "@headless-crm/db";
+import { getClient as getCentralClient, getDb as getCentralDb, isSqlite } from "@headless-crm/db";
 // Static imports for drizzle helpers and schema tables that were previously
 // `require()`d inline. The package is ESM (`"type": "module"`); require() at
 // runtime throws ReferenceError outside of bundler-wrapped contexts.
@@ -216,6 +216,11 @@ const RATE_LIMIT_EXEMPT = new Set([
 const WINDOW_MS = 60_000; // 1 minute
 const AUTHENTICATED_LIMIT = 100;
 const UNAUTHENTICATED_LIMIT = 20;
+const WEAK_SECRET_VALUES = new Set([
+  "change-me-in-production",
+  "change-me-in-production-32chars!!",
+  "dev-only-change-me-in-production-32chars!!",
+]);
 
 // Lazy service initialization
 let _db: any = null;
@@ -230,6 +235,35 @@ function getDb() {
     _db = getCentralDb();
   }
   return _db;
+}
+
+async function checkDatabaseReady() {
+  if (isSqlite()) {
+    getCentralClient().prepare("select 1 as ok").get();
+  } else {
+    await getCentralClient()`select 1 as ok`;
+  }
+}
+
+function assertProductionEnv() {
+  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.NEXT_PHASE?.startsWith("phase-production-build")) return;
+
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (adminKey && (adminKey.length < 32 || WEAK_SECRET_VALUES.has(adminKey))) {
+    throw new Error("ADMIN_API_KEY must be a strong unique secret in production");
+  }
+
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret.length < 32 || WEAK_SECRET_VALUES.has(jwtSecret)) {
+    throw new Error("JWT_SECRET must be a strong unique secret in production");
+  }
+
+  if ((process.env.CORS_ORIGINS ?? "").includes("*")) {
+    throw new Error(
+      "CORS_ORIGINS cannot include '*' in production. Set an explicit comma-separated allowlist of origins.",
+    );
+  }
 }
 
 function getEvents(): EventBus {
@@ -296,6 +330,7 @@ async function authenticate(c: any, next: any) {
 
 export function createApp() {
   const app = new Hono();
+  assertProductionEnv();
 
   // Reject CORS_ORIGINS=* in production. Wildcard CORS in a tenant-scoped API
   // means any origin can attempt cookie-bearing requests; coupled with a leaked
@@ -357,6 +392,22 @@ export function createApp() {
   // Health check (both root and /api prefix for Vercel compatibility)
   app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
   app.get("/api/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
+  app.get("/ready", async (c) => {
+    try {
+      await checkDatabaseReady();
+      return c.json({ status: "ready", database: isSqlite() ? "sqlite" : "postgres" });
+    } catch (e: any) {
+      return c.json({ status: "not_ready", error: e?.message ?? "Database unavailable" }, 503);
+    }
+  });
+  app.get("/api/ready", async (c) => {
+    try {
+      await checkDatabaseReady();
+      return c.json({ status: "ready", database: isSqlite() ? "sqlite" : "postgres" });
+    } catch (e: any) {
+      return c.json({ status: "not_ready", error: e?.message ?? "Database unavailable" }, 503);
+    }
+  });
 
   // Setup status endpoint — no auth required.
   // Returns ONLY whether setup is complete. Previously also leaked
@@ -911,6 +962,15 @@ export function createApp() {
     try {
       const agent = await getAuth().suspendAgent(c.get("ctx").tenantId, c.req.param("id"));
       return c.json(agent);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.post("/agents/:id/rotate-key", requireManage, async (c) => {
+    try {
+      const result = await getAuth().rotateApiKey(c.get("ctx").tenantId, c.req.param("id"));
+      return c.json(result);
     } catch (e: any) {
       return errorResponse(c, e);
     }

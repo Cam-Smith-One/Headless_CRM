@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "node ../../scripts/run-with-root-env.mjs ../../node_modules/.bin/tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node ../../scripts/run-with-root-env.mjs ../../node_modules/.bin/tsx src/server.ts"
   },
   "dependencies": {
     "@headless-crm/core": "*",

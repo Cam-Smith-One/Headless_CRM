@@ -29,7 +29,14 @@ import * as schema from "@headless-crm/db";
  */
 function resolveBetterAuthSecret(): string {
   const fromEnv = process.env.BETTER_AUTH_SECRET;
-  if (fromEnv && fromEnv.length >= 32) return fromEnv;
+  const weakValues = new Set([
+    "change-me-in-production",
+    "change-me-in-production-32chars!!",
+    "dev-only-change-me-in-production-32chars!!",
+  ]);
+  if (fromEnv && fromEnv.length >= 32 && !(process.env.NODE_ENV === "production" && weakValues.has(fromEnv))) {
+    return fromEnv;
+  }
   // During `next build` (page-data collection runs in production mode),
   // NEXT_PHASE is "phase-production-build". Allow a placeholder in that
   // phase so builds don't fail; runtime will reject if the env is still
@@ -38,7 +45,7 @@ function resolveBetterAuthSecret(): string {
   const isBuildPhase = process.env.NEXT_PHASE?.startsWith("phase-production-build");
   if (process.env.NODE_ENV === "production" && !isBuildPhase) {
     throw new Error(
-      "BETTER_AUTH_SECRET is required in production and must be at least 32 chars. " +
+      "BETTER_AUTH_SECRET is required in production, must be at least 32 chars, and cannot use a default value. " +
         "Set it to a strong random value (e.g. `openssl rand -base64 32`).",
     );
   }

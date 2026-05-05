@@ -22,6 +22,7 @@ export default function CompanyDetailPage() {
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -44,11 +45,13 @@ export default function CompanyDetailPage() {
       size: company.size || "",
     });
     setCustomFieldValues(normalizeCustomFields(company.customFields));
+    setError(null);
     setEditing(true);
   }
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
       const payload: any = { ...editForm };
       if (Object.keys(customFieldValues).length > 0) {
@@ -57,7 +60,7 @@ export default function CompanyDetailPage() {
       const updated = await apiPatch(`/api/companies/${id}`, payload, token);
       setCompany(updated);
       setEditing(false);
-    } catch { /* handle error */ } finally { setSaving(false); }
+    } catch (e: any) { setError(e?.message ?? "Failed to save company"); } finally { setSaving(false); }
   }
 
   async function handleDelete() {
@@ -65,7 +68,7 @@ export default function CompanyDetailPage() {
     try {
       await apiDelete(`/api/companies/${id}`, token);
       router.push("/companies");
-    } catch { /* handle error */ }
+    } catch (e: any) { setError(e?.message ?? "Failed to delete company"); }
   }
 
   if (loading) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading...</div>;
@@ -97,6 +100,7 @@ export default function CompanyDetailPage() {
         <Card className="mb-6">
           <CardContent className="p-4 space-y-3">
             <h3 className="text-xs font-medium text-muted-foreground">Edit Company</h3>
+            {error && <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
             {(["name", "domain", "industry", "size"] as const).map((field) => (
               <div key={field}>
                 <label className="text-xs text-muted-foreground capitalize">{field}</label>

@@ -90,19 +90,33 @@ export default function AgentsPage() {
 
   async function handleSuspend(id: string) {
     try {
+      setError("");
       const updated = await apiPost<any>(`/api/agents/${id}/suspend`, {}, token);
       setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, status: updated.status ?? "suspended" } : a)));
-    } catch (e) {
-      console.error("Failed to suspend agent", e);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to suspend agent");
     }
   }
 
   async function handleReactivate(id: string) {
     try {
+      setError("");
       const updated = await apiPost<any>(`/api/agents/${id}/approve`, {}, token);
       setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, status: updated.status ?? "active" } : a)));
-    } catch (e) {
-      console.error("Failed to reactivate agent", e);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to reactivate agent");
+    }
+  }
+
+  async function handleRotateKey(id: string) {
+    if (!confirm("Rotate this agent API key? The old key will stop working immediately.")) return;
+    try {
+      setError("");
+      const result = await apiPost<any>(`/api/agents/${id}/rotate-key`, {}, token);
+      setSuccessKey(result.apiKey);
+      fetchAgents();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to rotate API key");
     }
   }
 
@@ -149,6 +163,12 @@ export default function AgentsPage() {
         searchValue={search}
         onSearchChange={setSearch}
       />
+
+      {error && (
+        <div className="mx-6 mt-4 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading agents...</div>
@@ -263,6 +283,9 @@ export default function AgentsPage() {
                           Reactivate
                         </Button>
                       )}
+                      <Button variant="secondary" size="sm" className="h-7 text-[11px]" onClick={() => handleRotateKey(agent.id)}>
+                        Rotate Key
+                      </Button>
                       <Button variant="secondary" size="sm" className="h-7 text-[11px]" onClick={() => router.push(`/agents/${agent.id}`)}>
                         View Logs
                       </Button>
@@ -309,7 +332,6 @@ export default function AgentsPage() {
                 <Input className="mt-1 text-xs font-mono" value={formData.tenantId} onChange={(e) => setFormData({ ...formData, tenantId: e.target.value })} placeholder="tenant_..." />
               </div>
             </div>
-            {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="secondary" size="sm" onClick={() => setShowModal(false)}>Cancel</Button>
               <Button size="sm" onClick={handleProvision} disabled={submitting || !formData.name || !formData.tenantId}>

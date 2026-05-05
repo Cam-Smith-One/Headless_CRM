@@ -14,10 +14,25 @@ export interface AgentToken {
 
 let _secret: Uint8Array | null = null;
 
+const WEAK_SECRET_VALUES = new Set([
+  "change-me-in-production",
+  "change-me-in-production-32chars!!",
+  "dev-only-change-me-in-production-32chars!!",
+]);
+
+function assertStrongSecret(name: string, raw: string | undefined) {
+  if (!raw) throw new Error(`${name} is required`);
+  if (process.env.NODE_ENV === "production") {
+    if (raw.length < 32 || WEAK_SECRET_VALUES.has(raw)) {
+      throw new Error(`${name} must be a strong unique secret in production`);
+    }
+  }
+}
+
 function getSecret(): Uint8Array {
   if (!_secret) {
     const raw = process.env.JWT_SECRET;
-    if (!raw) throw new Error("JWT_SECRET is required");
+    assertStrongSecret("JWT_SECRET", raw);
     _secret = new TextEncoder().encode(raw);
   }
   return _secret;
