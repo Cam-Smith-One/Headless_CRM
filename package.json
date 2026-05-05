@@ -12,6 +12,8 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:e2e": "playwright test",
+    "test:selfhost": "node scripts/selfhost-smoke.mjs",
     "typecheck": "turbo build",
     "db:generate": "npm run generate -w packages/db",
     "db:migrate": "npm run migrate -w packages/db",
@@ -25,6 +27,7 @@
     "start": "npx tsx packages/cli/src/index.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },

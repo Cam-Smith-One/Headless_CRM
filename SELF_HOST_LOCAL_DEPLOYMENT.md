@@ -50,6 +50,23 @@ The API exposes:
 - `GET /health` and `GET /api/health`: process is alive.
 - `GET /ready` and `GET /api/ready`: process can query the configured database.
 
+## Smoke and E2E tests
+
+With the API running and `.env` loaded:
+
+```bash
+npm run test:selfhost
+```
+
+For browser E2E:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+The Playwright suite always checks public login and MCP discovery. It runs the agent persona when `ADMIN_API_KEY` is available. It runs first-run setup only on an empty database. It runs logged-in human contact CRUD when `E2E_EMAIL` and `E2E_PASSWORD` are set.
+
 ## SQLite backup and restore
 
 ```bash

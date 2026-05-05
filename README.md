@@ -80,6 +80,7 @@ npm run dev                 # API on :3001, dashboard on :3000
 - For production-like local runs, see [`SELF_HOST_LOCAL_DEPLOYMENT.md`](./SELF_HOST_LOCAL_DEPLOYMENT.md).
 - Run `npm run selfhost:check` before handing a local deploy to a team or agent.
 - Run `npm run sqlite:backup` before upgrades or heavy agent tests.
+- Run `npm run test:selfhost` for an API/agent smoke test, or `npm run test:e2e` for browser E2E.
 
 How it works:
 - Setup script writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`.
