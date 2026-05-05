@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
-import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
+import { CustomFieldsDisplay, CustomFieldsFormFields, normalizeCustomFields } from "@/components/custom-fields";
 import { ContactDeals, ContactCases } from "@/components/related-records";
 
 export default function ContactDetailPage() {
@@ -91,7 +91,7 @@ export default function ContactDetailPage() {
       phone: contact.phone || "",
       title: contact.title || "",
     });
-    setCustomFieldValues(contact.customFields ?? {});
+    setCustomFieldValues(normalizeCustomFields(contact.customFields));
     setEditing(true);
   }
 

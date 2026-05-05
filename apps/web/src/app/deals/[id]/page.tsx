@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
-import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
+import { CustomFieldsDisplay, CustomFieldsFormFields, normalizeCustomFields } from "@/components/custom-fields";
 import { DealContacts, DealCases } from "@/components/related-records";
 
 export default function DealDetailPage() {
@@ -56,7 +56,7 @@ export default function DealDetailPage() {
       stage: deal.stage || "",
       value: deal.value?.toString() || "",
     });
-    setCustomFieldValues(deal.customFields ?? {});
+    setCustomFieldValues(normalizeCustomFields(deal.customFields));
     setEditing(true);
   }
 

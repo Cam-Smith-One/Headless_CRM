@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
-import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
+import { CustomFieldsDisplay, CustomFieldsFormFields, normalizeCustomFields } from "@/components/custom-fields";
 
 const statusColors: Record<string, string> = {
   open: "bg-blue-500/15 text-blue-400",
@@ -82,7 +82,7 @@ export default function CaseDetailPage() {
       category: cas.category || "",
       description: cas.description || "",
     });
-    setCustomFieldValues(cas.customFields ?? {});
+    setCustomFieldValues(normalizeCustomFields(cas.customFields));
     setEditing(true);
   }
 

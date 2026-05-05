@@ -15,6 +15,19 @@ interface FieldDefinition {
   displayOrder: number;
 }
 
+export function normalizeCustomFields(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
 /** Hook to fetch custom field definitions for a collection */
 export function useCustomFieldDefs(collection: string) {
   const { token } = useAuth();
@@ -44,7 +57,7 @@ export function CustomFieldsDisplay({
 
   if (!defs.length) return null;
 
-  const values = customFields ?? {};
+  const values = normalizeCustomFields(customFields);
 
   return (
     <div className="space-y-2 pt-2 border-t border-border mt-2">

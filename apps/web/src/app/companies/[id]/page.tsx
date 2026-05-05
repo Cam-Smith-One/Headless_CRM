@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPatch, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { AttachmentsSection } from "@/components/attachments";
-import { CustomFieldsDisplay, CustomFieldsFormFields } from "@/components/custom-fields";
+import { CustomFieldsDisplay, CustomFieldsFormFields, normalizeCustomFields } from "@/components/custom-fields";
 import { CompanyContacts, CompanyDeals, CompanyCases } from "@/components/related-records";
 
 export default function CompanyDetailPage() {
@@ -43,7 +43,7 @@ export default function CompanyDetailPage() {
       industry: company.industry || "",
       size: company.size || "",
     });
-    setCustomFieldValues(company.customFields ?? {});
+    setCustomFieldValues(normalizeCustomFields(company.customFields));
     setEditing(true);
   }
 
