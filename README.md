@@ -306,7 +306,7 @@ Auth:  Bearer <agent-jwt-token>
       "args": ["tsx", "packages/mcp-server/src/stdio.ts"],
       "env": {
         "DATABASE_URL": "postgresql://headless:headless@localhost:5433/headless_crm",
-        "JWT_SECRET": "change-me-in-production",
+        "JWT_SECRET": "<generate-a-32-char-random-secret>",
         "HEADLESS_CRM_TOKEN": "<your-agent-jwt-token>"
       }
     }
@@ -501,10 +501,10 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 | `DATABASE_URL` | PostgreSQL connection string | (SQLite mode if unset) |
 | `DB_PATH` | SQLite file path (when no DATABASE_URL) | `./headless-crm.db` |
 | `REDIS_URL` | Redis connection string (optional) | (in-memory fallback) |
-| `JWT_SECRET` | Secret for signing agent JWTs | `change-me-in-production` |
+| `JWT_SECRET` | Secret for signing agent JWTs | (required in production; generate a 32+ char random value) |
 | `PORT` | API server port | `3001` |
 | `ADMIN_API_KEY` | Admin key for bootstrap provisioning | (none) |
-| `CORS_ORIGINS` | Comma-separated allowed origins | `*` |
+| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000` |
 | `RESEND_API_KEY` | Resend API key for emails (optional) | (email disabled) |
 | `EMAIL_FROM` | Sender email address | `crm@headless-crm.dev` |
 | `OPENAI_API_KEY` | OpenAI key for embeddings/vector search (optional) | (vector search disabled) |
@@ -541,9 +541,9 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 ### Docker Compose (full stack)
 
 ```bash
-# Set your secrets
-export JWT_SECRET="your-secure-secret"
-export ADMIN_API_KEY="your-admin-key"
+# Set strong secrets first
+export JWT_SECRET="$(openssl rand -base64 32)"
+export ADMIN_API_KEY="$(openssl rand -base64 32)"
 
 # Start everything (PostgreSQL + API + Dashboard)
 docker compose up -d

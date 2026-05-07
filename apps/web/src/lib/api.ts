@@ -1,4 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_URL =
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "")
+    : "";
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;

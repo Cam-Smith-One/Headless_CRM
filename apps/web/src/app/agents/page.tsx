@@ -42,7 +42,11 @@ export default function AgentsPage() {
   const [successKey, setSuccessKey] = useState("");
   const [copiedField, setCopiedField] = useState("");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+  function getApiUrl() {
+    return typeof window !== "undefined"
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001");
+  }
 
   function copyToClipboard(text: string, field: string) {
     navigator.clipboard.writeText(text);
@@ -51,11 +55,12 @@ export default function AgentsPage() {
   }
 
   function getMcpConfig(apiKey: string) {
+    const apiUrl = getApiUrl();
     return JSON.stringify(
       {
         mcpServers: {
           "headless-crm": {
-            url: `${API_URL}/mcp`,
+            url: `${apiUrl}/mcp`,
             headers: {
               Authorization: `Bearer ${apiKey}`,
             },

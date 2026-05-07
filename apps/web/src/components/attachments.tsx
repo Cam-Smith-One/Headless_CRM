@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 
 // TODO: Migrate from base64 DB storage to Vercel Blob for production use.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_URL =
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "")
+    : "";
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;

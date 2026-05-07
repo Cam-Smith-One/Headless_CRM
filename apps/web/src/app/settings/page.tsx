@@ -9,7 +9,11 @@ import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, apiFetchNoAuth, adminPost, apiPost } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+function getApiUrl() {
+  return typeof window !== "undefined"
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001");
+}
 
 interface SetupStatus {
   configured: boolean;
@@ -139,11 +143,12 @@ export default function SettingsPage() {
   }
 
   function getMcpConfig(apiKey: string) {
+    const apiUrl = getApiUrl();
     return JSON.stringify(
       {
         mcpServers: {
           "headless-crm": {
-            url: `${API_URL}/mcp`,
+            url: `${apiUrl}/mcp`,
             headers: {
               Authorization: `Bearer ${apiKey}`,
             },

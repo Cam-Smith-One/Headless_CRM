@@ -10,6 +10,7 @@ import { getDb, isSqlite } from "@headless-crm/db";
 import { users, tenants } from "@headless-crm/db";
 import { count, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { invalidateSetupCache } from "../setup-status/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,5 +81,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  invalidateSetupCache();
   return NextResponse.json({ ok: true, tenantId });
 }

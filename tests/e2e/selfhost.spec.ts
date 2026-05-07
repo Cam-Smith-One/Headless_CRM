@@ -76,10 +76,12 @@ test("first-run setup can create the owner when database is empty", async ({ pag
   test.skip(setup.hasUsers, "setup flow only runs on an empty database");
 
   const suffix = Date.now();
+  const email = process.env.E2E_EMAIL ?? `owner-${suffix}@example.com`;
+  const password = process.env.E2E_PASSWORD ?? "TestPassword123!";
   await page.goto("/setup");
   await page.getByPlaceholder("Jane Smith").fill("E2E Owner");
-  await page.getByPlaceholder("jane@company.com").fill(`owner-${suffix}@example.com`);
-  await page.locator("input[type='password']").fill("TestPassword123!");
+  await page.getByPlaceholder("jane@company.com").fill(email);
+  await page.locator("input[type='password']").fill(password);
   await page.getByPlaceholder("Acme Corp").fill("E2E Workspace");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -93,7 +95,7 @@ test("human persona can log in and edit a contact when credentials are provided"
 
   const suffix = Date.now();
   await page.goto("/login");
-  await page.getByPlaceholder("jane@company.com").fill(email!);
+  await page.locator("input[type='email']").fill(email!);
   await page.locator("input[type='password']").fill(password!);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -109,10 +111,10 @@ test("human persona can log in and edit a contact when credentials are provided"
   await page.getByRole("button", { name: "Create Contact" }).click();
   await expect(page.getByText(`human-${suffix}@example.com`)).toBeVisible();
 
-  await page.getByText("Human Tester").click();
+  await page.getByText("Human Tester").first().click();
   await page.getByRole("button", { name: "Edit" }).click();
   const visibleInputs = page.locator("main input:visible");
   await visibleInputs.nth(4).fill("Senior Revenue Ops");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Senior Revenue Ops")).toBeVisible();
+  await expect(page.locator("main").getByText("Senior Revenue Ops").first()).toBeVisible();
 });

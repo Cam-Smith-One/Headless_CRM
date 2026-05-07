@@ -14,8 +14,8 @@ function parseEnv(text) {
 }
 
 const env = {
-  ...process.env,
   ...(existsSync(".env") ? parseEnv(readFileSync(".env", "utf8")) : {}),
+  ...process.env,
   NODE_ENV: process.env.NODE_ENV ?? "production",
 };
 
@@ -24,9 +24,9 @@ const webPort = env.WEB_PORT ?? "3000";
 const appHost = env.APP_HOST ?? "127.0.0.1";
 
 env.PORT = apiPort;
-env.NEXT_PUBLIC_API_URL ??= `http://${appHost}:${apiPort}`;
-env.NEXT_PUBLIC_APP_URL ??= `http://${appHost}:${webPort}`;
-env.BETTER_AUTH_URL ??= env.NEXT_PUBLIC_APP_URL;
+env.NEXT_PUBLIC_API_URL = `http://${appHost}:${apiPort}`;
+env.NEXT_PUBLIC_APP_URL = `http://${appHost}:${webPort}`;
+env.BETTER_AUTH_URL = env.NEXT_PUBLIC_APP_URL;
 
 const children = [];
 function run(name, command, args, childEnv = env) {

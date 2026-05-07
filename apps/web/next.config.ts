@@ -3,6 +3,7 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   // Anchor workspace root to repo root so Next.js doesn't walk up into ~/
   outputFileTracingRoot: path.join(__dirname, "../../"),
   // Transpile monorepo packages so Next.js can bundle them
