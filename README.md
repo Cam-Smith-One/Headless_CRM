@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="./apps/web/public/headless-crm-crab.png" alt="Headless CRM crab logo" width="180" />
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/MCP-Native-blueviolet?style=for-the-badge" alt="MCP Native" />
   <img src="https://img.shields.io/badge/API-First-blue?style=for-the-badge" alt="API First" />
   <img src="https://img.shields.io/badge/Self--Hostable-green?style=for-the-badge" alt="Self-Hostable" />

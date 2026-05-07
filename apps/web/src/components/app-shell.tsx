@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { Brand } from "@/components/brand";
 import { Sidebar } from "@/components/sidebar";
 
 const AUTH_PATHS = ["/login", "/setup", "/signup"];
@@ -28,10 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary">
-            <span className="text-[10px] font-bold text-primary-foreground">H</span>
-          </div>
-          <span className="text-sm font-semibold">Headless CRM</span>
+          <Brand compact />
         </div>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>

@@ -17,6 +17,19 @@ npm run selfhost:sqlite
 
 Open `http://localhost:3000/setup`, create the first admin user, then use **Agents** to provision agent keys.
 
+If `3000` or `3001` are already in use, set custom ports before starting:
+
+```bash
+API_PORT=3201 WEB_PORT=3200 npm run selfhost:sqlite
+```
+
+For watch mode instead of production-style local start:
+
+```bash
+PORT=3200 NEXT_PUBLIC_API_URL=http://127.0.0.1:3201 npm run dev -w web
+PORT=3201 npm run start -w @headless-crm/api
+```
+
 Use Postgres instead of SQLite when you have multiple app/API processes, heavy concurrent agent writes, or production workloads where database locking and online backups matter.
 
 ## Postgres path
@@ -88,6 +101,6 @@ Use explicit `CORS_ORIGINS`; never use `*` for a team deployment.
 
 ## Known follow-up work
 
-- Triage dependency audit findings.
-- Move the Next `middleware` file to the newer `proxy` convention.
-- Add a browser E2E suite that covers setup, invite accept, agent provisioning, key rotation, contact CRUD, and backup smoke checks.
+- Expand browser E2E to cover invite accept, team role changes, and key rotation UI.
+- Add a documented Postgres backup/restore story alongside the SQLite flow.
+- Add CI coverage for `test:selfhost` and the Playwright self-host suite.

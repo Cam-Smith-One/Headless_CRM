@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Brand } from "@/components/brand";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { apiFetch } from "@/lib/api";
@@ -384,18 +385,11 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
         "fixed inset-y-0 left-0 z-50 flex h-screen w-56 flex-col border-r border-border bg-sidebar transition-transform duration-200 md:static md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-      <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-          <span className="text-xs font-bold text-primary-foreground">H</span>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-sidebar-foreground leading-none">
-            Headless CRM
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-            v0.1.0
-          </p>
-        </div>
+      <div className="px-4 py-4">
+        <Brand subtitle="Agent-native CRM" />
+        <p className="mt-1 pl-[52px] font-mono text-[11px] text-muted-foreground">
+          v0.1.0
+        </p>
       </div>
 
       <SearchBox />
