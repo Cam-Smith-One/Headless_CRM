@@ -84,6 +84,7 @@ npm run dev                 # API on :3001, dashboard on :3000
 - For production-like local runs, see [`SELF_HOST_LOCAL_DEPLOYMENT.md`](./SELF_HOST_LOCAL_DEPLOYMENT.md).
 - Run `npm run selfhost:check` before handing a local deploy to a team or agent.
 - Run `npm run sqlite:backup` before upgrades or heavy agent tests.
+- Run `npm run postgres:backup` before Postgres upgrades or risky schema work.
 - Run `npm run test:selfhost` for an API/agent smoke test, or `npm run test:e2e` for browser E2E.
 
 How it works:
@@ -191,6 +192,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 - **Customizable Dashboard** — drag-and-drop widgets with localStorage persistence
 - **Notification System** — auto-generated notifications for key CRM events
 - **File Attachments** — upload and manage files on any record
+- **Bulk Import / Export** — CSV import plus CSV/JSON export from the operator settings surface
 - **Light/Dark Mode** — full theme support
 - **Mobile Responsive** — works on desktop and mobile
 - **Real-time Polling** — dashboard auto-refreshes with live data
@@ -481,6 +483,13 @@ From **Settings → Team**, owners and admins can invite members:
 - **With Resend configured:** invite email is sent automatically
 
 Invite links expire after 48 hours. Pending invites are listed in the Team page until accepted or expired.
+
+Owners can also:
+
+- change member roles between `member` and `admin`
+- remove members from the tenant without deleting their underlying auth account
+
+Admins can cancel pending invites but cannot promote, demote, or remove the owner.
 
 ### Human Roles
 

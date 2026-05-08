@@ -3,17 +3,17 @@
  * Called after signup to mark the invite as accepted and assign the tenant.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@headless-crm/auth-web";
 import { getDb } from "@headless-crm/db";
 import { invites, users } from "@headless-crm/db";
 import { eq, and, gt } from "drizzle-orm";
+import { getFreshSessionUser } from "../../_shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session?.user) {
+  const freshUser = await getFreshSessionUser(request.headers);
+  if (!freshUser) {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
   }
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   // Bind invite to the email it was issued for. Without this, anyone
   // with the (forwardable) invite link could sign up with their own email
   // and inherit the role + tenant. Compare case-insensitively.
-  const sessionEmail = (session.user.email ?? "").toLowerCase();
+  const sessionEmail = (freshUser.email ?? "").toLowerCase();
   const inviteEmail = (invite.email ?? "").toLowerCase();
   if (!sessionEmail || sessionEmail !== inviteEmail) {
     return NextResponse.json(
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       tenantId: invite.tenantId,
       updatedAt: new Date(),
     })
-    .where(eq(users.id, session.user.id));
+    .where(eq(users.id, freshUser.id));
 
   // Mark invite accepted
   await db

@@ -25,12 +25,17 @@ export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState("");
+  const [savingMemberId, setSavingMemberId] = useState("");
+  const [removingMemberId, setRemovingMemberId] = useState("");
+  const [revokingInviteId, setRevokingInviteId] = useState("");
 
   // Derive canManage from the fresh member list (DB-sourced) rather than the
   // Better Auth session cookie, which can be stale for up to 5 minutes after
   // a role change (e.g. right after the /setup flow promotes user to owner).
   const currentMember = members.find((m) => m.id === session?.user?.id);
   const canManage = currentMember?.role === "owner" || currentMember?.role === "admin";
+  const canManageRoles = currentMember?.role === "owner";
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
@@ -38,16 +43,84 @@ export default function TeamPage() {
   const [inviteResult, setInviteResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState("");
 
+  async function refreshTeam() {
+    try {
+      const res = await fetch("/api/auth/team");
+      const data = await res.json();
+      setMembers(data.members ?? []);
+      setInvites(data.invites ?? []);
+    } catch {}
+  }
+
   useEffect(() => {
-    fetch("/api/auth/team")
-      .then((r) => r.json())
-      .then((data) => {
-        setMembers(data.members ?? []);
-        setInvites(data.invites ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    refreshTeam().finally(() => setLoading(false));
   }, []);
+
+  async function handleRoleChange(memberId: string, role: "admin" | "member") {
+    setActionError("");
+    setSavingMemberId(memberId);
+    try {
+      const res = await fetch("/api/auth/team", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? "Could not update role");
+        return;
+      }
+      setMembers((prev) => prev.map((member) => (member.id === memberId ? { ...member, role } : member)));
+    } catch {
+      setActionError("Something went wrong");
+    } finally {
+      setSavingMemberId("");
+    }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    setActionError("");
+    setRemovingMemberId(memberId);
+    try {
+      const res = await fetch("/api/auth/team", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? "Could not remove member");
+        return;
+      }
+      setMembers((prev) => prev.filter((member) => member.id !== memberId));
+    } catch {
+      setActionError("Something went wrong");
+    } finally {
+      setRemovingMemberId("");
+    }
+  }
+
+  async function handleCancelInvite(inviteId: string) {
+    setActionError("");
+    setRevokingInviteId(inviteId);
+    try {
+      const res = await fetch("/api/auth/team", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? "Could not cancel invite");
+        return;
+      }
+      setInvites((prev) => prev.filter((invite) => invite.id !== inviteId));
+    } catch {
+      setActionError("Something went wrong");
+    } finally {
+      setRevokingInviteId("");
+    }
+  }
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -65,7 +138,7 @@ export default function TeamPage() {
         return;
       }
       setInviteResult({ url: data.inviteUrl });
-      setInvites((prev) => [...prev, { id: data.invite.id, email: inviteEmail, role: inviteRole, expiresAt: data.invite.expiresAt }]);
+      setInvites((prev) => [...prev, { id: data.invite.id, email: data.invite.email, role: data.invite.role, expiresAt: data.invite.expiresAt }]);
       setInviteEmail("");
     } catch {
       setError("Something went wrong");
@@ -96,16 +169,30 @@ export default function TeamPage() {
             Manage team members and invite new people
           </p>
         </div>
-        {canManage && (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => { setShowInviteModal(true); setInviteResult(null); setError(""); }}
-            className="h-8 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            onClick={() => { setLoading(true); refreshTeam().finally(() => setLoading(false)); }}
+            className="h-8 rounded-lg border border-border bg-transparent px-3 text-xs font-medium text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Invite member
+            Refresh
           </button>
-        )}
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => { setShowInviteModal(true); setInviteResult(null); setError(""); }}
+              className="h-8 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Invite member
+            </button>
+          )}
+        </div>
       </div>
+      {actionError && (
+        <p className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {actionError}
+        </p>
+      )}
 
       {/* Members list */}
       <div className="rounded-lg border border-border overflow-hidden">
@@ -119,7 +206,7 @@ export default function TeamPage() {
         ) : (
           <div className="divide-y divide-border">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={m.id} data-member-id={m.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-medium text-muted-foreground">
                   {m.name?.[0]?.toUpperCase() ?? "?"}
                 </div>
@@ -127,9 +214,37 @@ export default function TeamPage() {
                   <p className="truncate text-xs font-medium text-foreground">{m.name}</p>
                   <p className="truncate text-[10px] text-muted-foreground">{m.email}</p>
                 </div>
-                {roleBadge(m.role)}
-                {m.id === session?.user?.id && (
-                  <span className="text-[10px] text-muted-foreground">(you)</span>
+                {canManageRoles && m.role !== "owner" && m.id !== session?.user?.id ? (
+                  <div className="flex items-center gap-2">
+                    <label className="sr-only" htmlFor={`member-role-${m.id}`}>Role</label>
+                    <select
+                      id={`member-role-${m.id}`}
+                      aria-label={`Role for ${m.email}`}
+                      value={m.role}
+                      disabled={savingMemberId === m.id || removingMemberId === m.id}
+                      onChange={(e) => handleRoleChange(m.id, e.target.value as "admin" | "member")}
+                      className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                    >
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${m.email}`}
+                      disabled={removingMemberId === m.id || savingMemberId === m.id}
+                      onClick={() => handleRemoveMember(m.id)}
+                      className="rounded px-2 py-1 text-[10px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                    >
+                      {removingMemberId === m.id ? "Removing…" : "Remove"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {roleBadge(m.role)}
+                    {m.id === session?.user?.id && (
+                      <span className="text-[10px] text-muted-foreground">(you)</span>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
@@ -145,7 +260,7 @@ export default function TeamPage() {
           </div>
           <div className="divide-y divide-border">
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={inv.id} data-invite-id={inv.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs text-foreground">{inv.email}</p>
                   <p className="text-[10px] text-muted-foreground">
@@ -153,6 +268,17 @@ export default function TeamPage() {
                   </p>
                 </div>
                 {roleBadge(inv.role)}
+                {canManage && (
+                  <button
+                    type="button"
+                    aria-label={`Cancel invite for ${inv.email}`}
+                    disabled={revokingInviteId === inv.id}
+                    onClick={() => handleCancelInvite(inv.id)}
+                    className="rounded px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-secondary disabled:opacity-50"
+                  >
+                    {revokingInviteId === inv.id ? "Canceling…" : "Cancel"}
+                  </button>
+                )}
               </div>
             ))}
           </div>

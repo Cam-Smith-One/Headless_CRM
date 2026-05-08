@@ -50,6 +50,20 @@ docker compose up
 
 The setup script creates a `.env` and generates strong local values for `JWT_SECRET`, `BETTER_AUTH_SECRET`, and `ADMIN_API_KEY`. Do not reuse these values across environments.
 
+For backups:
+
+```bash
+npm run postgres:backup
+```
+
+For restores:
+
+```bash
+npm run postgres:restore -- ./backups/headless-crm-postgres-YYYYMMDD-HHMMSS.dump
+```
+
+If you are not using the repo's Docker Compose Postgres service, the scripts fall back to `DATABASE_URL` plus local `pg_dump` and `pg_restore`.
+
 ## Agent setup
 
 1. Sign in as a developer/admin human.
@@ -96,6 +110,13 @@ npm run sqlite:restore -- ./backups/headless-crm-YYYYMMDD-HHMMSS.db
 
 Stop write-heavy agent jobs before restoring. Backups copy the main SQLite file and WAL/SHM sidecars when present.
 
+## Postgres backup and restore notes
+
+- Prefer a backup immediately before upgrades.
+- Pause write-heavy jobs before restore validation.
+- For managed providers, provider-native snapshots are still the safest first line of defense.
+- The included scripts are aimed at self-hosted and local operator workflows.
+
 ## Production safety checks
 
 Production mode refuses public default secrets:
@@ -108,6 +129,6 @@ Use explicit `CORS_ORIGINS`; never use `*` for a team deployment.
 
 ## Known follow-up work
 
-- Expand browser E2E to cover invite accept, team role changes, and key rotation UI.
-- Add a documented Postgres backup/restore story alongside the SQLite flow.
-- CI now covers `test:selfhost` and the Playwright self-host suite against a no-seed SQLite first-run flow; team invite and role-change paths are the next browser gaps.
+- Expand browser E2E to cover member removal and key rotation UI.
+- Add managed-provider specific Postgres backup/restore notes alongside the local scripts.
+- The next self-host UX frontier is bulk import/export directly from the main CRM pages, not just the settings/operator surface.

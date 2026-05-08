@@ -1,7 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 const apiURL = process.env.E2E_API_URL ?? "http://127.0.0.1:3001";
 const adminKey = process.env.ADMIN_API_KEY;
+
+async function login(page: Page, email: string, password: string) {
+  await page.goto("/login");
+  if (!page.url().includes("/login")) return;
+  await page.locator("input[type='email']").fill(email);
+  await page.locator("input[type='password']").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+async function ensureOwnerAccount(request: APIRequestContext, page: Page, email: string, password: string) {
+  const status = await request.get("/api/auth/setup-status");
+  const setup = await status.json();
+  if (setup.hasUsers) return;
+
+  await page.goto("/setup");
+  await page.getByPlaceholder("Jane Smith").fill("E2E Owner");
+  await page.getByPlaceholder("jane@company.com").fill(email);
+  await page.locator("input[type='password']").fill(password);
+  await page.getByPlaceholder("Acme Corp").fill("E2E Workspace");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
 
 test("public login page does not render protected app shell", async ({ page }) => {
   await page.goto("/login");
@@ -88,17 +111,14 @@ test("first-run setup can create the owner when database is empty", async ({ pag
   await expect(page.getByText("E2E Owner")).toBeVisible();
 });
 
-test("human persona can log in and edit a contact when credentials are provided", async ({ page }) => {
+test("human persona can log in and edit a contact when credentials are provided", async ({ page, request }) => {
   const email = process.env.E2E_EMAIL;
   const password = process.env.E2E_PASSWORD;
   test.skip(!email || !password, "E2E_EMAIL and E2E_PASSWORD are required for human CRUD E2E");
 
   const suffix = Date.now();
-  await page.goto("/login");
-  await page.locator("input[type='email']").fill(email!);
-  await page.locator("input[type='password']").fill(password!);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await ensureOwnerAccount(request, page, email!, password!);
+  await login(page, email!, password!);
 
   await page.goto("/contacts");
   await page.getByRole("button", { name: "+ New Contact" }).click();
@@ -117,4 +137,57 @@ test("human persona can log in and edit a contact when credentials are provided"
   await visibleInputs.nth(4).fill("Senior Revenue Ops");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.locator("main").getByText("Senior Revenue Ops").first()).toBeVisible();
+});
+
+test("owner can invite a teammate, teammate can join, and owner can promote them to admin", async ({ page, browser, request }) => {
+  const ownerEmail = process.env.E2E_EMAIL;
+  const ownerPassword = process.env.E2E_PASSWORD;
+  test.skip(!ownerEmail || !ownerPassword, "E2E_EMAIL and E2E_PASSWORD are required for team E2E");
+
+  const suffix = Date.now();
+  const teammateEmail = `teammate-${suffix}@example.com`;
+  const teammatePassword = "TeamPassword123!";
+  const adminInviteeEmail = `admin-invite-${suffix}@example.com`;
+
+  await ensureOwnerAccount(request, page, ownerEmail!, ownerPassword!);
+  await login(page, ownerEmail!, ownerPassword!);
+  await page.goto("/settings/team");
+  await page.getByRole("button", { name: "Invite member" }).click();
+  await page.getByPlaceholder("colleague@company.com").fill(teammateEmail);
+  await page.getByRole("button", { name: "Send invite" }).click();
+  await expect(page.getByText("Invite created. Share this link with your team member:")).toBeVisible();
+  const inviteUrl = ((await page.locator(".fixed code").textContent()) ?? "").trim();
+  expect(inviteUrl).toContain("/signup?token=");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText(teammateEmail)).toBeVisible();
+
+  const teammateContext = await browser.newContext();
+  const teammatePage = await teammateContext.newPage();
+  await teammatePage.goto(inviteUrl);
+  await expect(teammatePage.getByRole("heading", { name: "Accept invite" })).toBeVisible();
+  await teammatePage.getByPlaceholder("Jane Smith").fill("Teammate Admin");
+  await teammatePage.locator("input[type='password']").fill(teammatePassword);
+  await teammatePage.getByRole("button", { name: "Create account" }).click();
+  await expect(teammatePage).toHaveURL(/\/$/);
+
+  await teammatePage.goto("/settings/team");
+  await expect(teammatePage.getByText(teammateEmail)).toBeVisible();
+  await expect(teammatePage.getByRole("button", { name: "Invite member" })).toHaveCount(0);
+
+  await page.goto("/settings/team");
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(page.getByText(teammateEmail)).toBeVisible();
+  await page.getByLabel(`Role for ${teammateEmail}`).selectOption("admin");
+  await expect(page.getByLabel(`Role for ${teammateEmail}`)).toHaveValue("admin");
+
+  await teammatePage.goto("/settings/team");
+  await expect(teammatePage.getByRole("button", { name: "Invite member" })).toBeVisible();
+  await teammatePage.getByRole("button", { name: "Invite member" }).click();
+  await teammatePage.getByPlaceholder("colleague@company.com").fill(adminInviteeEmail);
+  await teammatePage.getByRole("button", { name: "Send invite" }).click();
+  await expect(teammatePage.getByText("Invite created. Share this link with your team member:")).toBeVisible();
+  await teammatePage.getByRole("button", { name: "Done" }).click();
+  await expect(teammatePage.getByText(adminInviteeEmail)).toBeVisible();
+
+  await teammateContext.close();
 });

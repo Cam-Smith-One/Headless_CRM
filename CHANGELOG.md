@@ -26,12 +26,15 @@ This pass is about making the repo easier to trust, adopt, extend, and maintain 
   - Dependabot config
 - New examples for MCP client configuration and HTTP provisioning.
 - `scripts/check-open-source-readiness.mjs` plus `npm run oss:check` for repo hygiene checks.
+- Postgres backup and restore scripts for local/self-host operators.
 
 ### Changed
 
 - README now includes a docs map and example entry points for new users.
 - CONTRIBUTING now points contributors to the real verification commands and extension docs.
 - `setup-sqlite.sh` accepts `SEED_DEMO=0` so maintainers and CI can exercise the true first-run owner setup path.
+- Team management now supports invite cancellation, owner role changes, and member removal.
+- Settings now exposes bulk export alongside import, and the CSV parser handles quoted fields correctly.
 - CI now validates:
   - repo hygiene
   - Postgres build/lint/test

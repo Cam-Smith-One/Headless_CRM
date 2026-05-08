@@ -80,6 +80,15 @@ SQLite is the right local/default path, but not the right answer for multi-proce
 - concurrent agent workers
 - large attachment usage
 
+## Postgres backup or restore script cannot find the database
+
+The scripts work in two modes:
+
+1. the repo's Docker Compose `postgres` service is running
+2. `DATABASE_URL` is available and local `pg_dump` / `pg_restore` tools are installed
+
+If neither is true, the scripts will fail on purpose.
+
 ## Public release hygiene
 
 Before publishing the repo or a release branch, run:

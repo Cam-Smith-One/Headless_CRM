@@ -15,6 +15,62 @@ function getApiUrl() {
     : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001");
 }
 
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentValue = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        currentValue += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      currentRow.push(currentValue.trim());
+      currentValue = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i++;
+      currentRow.push(currentValue.trim());
+      if (currentRow.some((cell) => cell.length > 0)) rows.push(currentRow);
+      currentRow = [];
+      currentValue = "";
+      continue;
+    }
+
+    currentValue += char;
+  }
+
+  currentRow.push(currentValue.trim());
+  if (currentRow.some((cell) => cell.length > 0)) rows.push(currentRow);
+
+  if (rows.length < 2) {
+    throw new Error("CSV must have a header row and at least one data row");
+  }
+
+  const headers = rows[0].map((header) => header.replace(/^"|"$/g, ""));
+  return rows.slice(1).map((values) => {
+    const obj: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      const value = values[index]?.replace(/^"|"$/g, "") ?? "";
+      if (value) obj[header] = value;
+    });
+    return obj;
+  });
+}
+
 interface SetupStatus {
   configured: boolean;
   agentCount: number;
@@ -62,6 +118,10 @@ export default function SettingsPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; failed: number; errors: { index: number; error: string }[] } | null>(null);
   const [importError, setImportError] = useState("");
+  const [exportCollection, setExportCollection] = useState("contacts");
+  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   // Clipboard feedback
   const [copiedField, setCopiedField] = useState("");
@@ -383,6 +443,83 @@ export default function SettingsPage() {
 
         {/* Import Data */}
         <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Export Data</h2>
+          <p className="text-xs text-muted-foreground">
+            Download a full collection as CSV or JSON. CSV exports are designed to round-trip back through the import flow.
+          </p>
+          <Card className="bg-card/50">
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Collection</label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-secondary px-3 py-2 text-xs text-foreground"
+                    value={exportCollection}
+                    onChange={(e) => setExportCollection(e.target.value)}
+                  >
+                    <option value="contacts">Contacts</option>
+                    <option value="companies">Companies</option>
+                    <option value="deals">Deals</option>
+                    <option value="cases">Cases</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Format</label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-secondary px-3 py-2 text-xs text-foreground"
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value as "csv" | "json")}
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="json">JSON</option>
+                  </select>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                disabled={exporting || !token}
+                onClick={async () => {
+                  if (!token) return;
+                  setExporting(true);
+                  setExportError("");
+                  try {
+                    const res = await fetch(`/api/${exportCollection}/export?format=${exportFormat}`, {
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (!res.ok) {
+                      throw new Error(`Export failed with ${res.status}`);
+                    }
+                    const blob = await res.blob();
+                    const header = res.headers.get("content-disposition");
+                    const fallbackName = `${exportCollection}-export.${exportFormat}`;
+                    const filename = header?.match(/filename="([^"]+)"/)?.[1] ?? fallbackName;
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(url);
+                  } catch (e: any) {
+                    setExportError(e.message ?? "Export failed");
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+              >
+                {exporting ? "Exporting..." : "Download Export"}
+              </Button>
+              {!token && (
+                <p className="text-xs text-yellow-400">Set an API token first to export data.</p>
+              )}
+              {exportError && <p className="text-xs text-red-400">{exportError}</p>}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Import Data */}
+        <section className="space-y-3">
           <h2 className="text-sm font-semibold">Import Data</h2>
           <p className="text-xs text-muted-foreground">
             Upload a CSV file to import records into a collection. The first row must be column headers.
@@ -425,15 +562,7 @@ export default function SettingsPage() {
                   setImportError("");
                   try {
                     const text = await importFile.text();
-                    const lines = text.split("\n").filter((l) => l.trim());
-                    if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row");
-                    const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
-                    const records = lines.slice(1).map((line) => {
-                      const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-                      const obj: Record<string, string> = {};
-                      headers.forEach((h, i) => { if (values[i]) obj[h] = values[i]; });
-                      return obj;
-                    });
+                    const records = parseCsv(text);
                     const result = await apiPost<{ imported: number; failed: number; errors: { index: number; error: string }[] }>(
                       `/api/${importCollection}/import`,
                       { records },

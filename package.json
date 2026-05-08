@@ -25,6 +25,8 @@
     "selfhost:sqlite": "node scripts/selfhost-sqlite.mjs",
     "sqlite:backup": "./scripts/backup-sqlite.sh",
     "sqlite:restore": "./scripts/restore-sqlite.sh",
+    "postgres:backup": "./scripts/backup-postgres.sh",
+    "postgres:restore": "./scripts/restore-postgres.sh",
     "start": "npx tsx packages/cli/src/index.ts"
   },
   "devDependencies": {

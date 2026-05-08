@@ -3,12 +3,12 @@
  * POST /api/auth/invite                — create a new invite (admin only)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@headless-crm/auth-web";
 import { getDb } from "@headless-crm/db";
-import { invites, users } from "@headless-crm/db";
+import { invites } from "@headless-crm/db";
 import { eq, and, gt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { randomBytes } from "crypto";
+import { getFreshSessionUser } from "../_shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,14 +54,15 @@ export async function GET(request: NextRequest) {
 
 /** Create an invite — requires admin or owner role */
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session?.user) {
+  const user = await getFreshSessionUser(request.headers);
+  if (!user) {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
   }
-
-  const user = session.user as any;
   if (!["owner", "admin"].includes(user.role)) {
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+  }
+  if (!user.tenantId) {
+    return NextResponse.json({ error: "User has no tenant assigned" }, { status: 400 });
   }
 
   const body = await request.json();
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getDb();
+  const normalizedEmail = email.trim().toLowerCase();
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
     .insert(invites)
     .values({
       id: nanoid(),
-      email,
+      email: normalizedEmail,
       role,
       tenantId: user.tenantId,
       invitedByUserId: user.id,
@@ -107,8 +109,8 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           from: process.env.EMAIL_FROM ?? "crm@headless-crm.dev",
-          to: email,
-          subject: `${session.user.name} invited you to Headless CRM`,
+          to: normalizedEmail,
+          subject: `${user.name} invited you to Headless CRM`,
           html: `<p>You've been invited to join as a <strong>${role}</strong>.</p><p><a href="${inviteUrl}">Accept invite</a></p><p>This link expires in 48 hours.</p>`,
         }),
       });

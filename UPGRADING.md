@@ -35,6 +35,18 @@ If the release includes schema changes, the startup or setup path should apply t
 4. Restart the app or redeploy the services.
 5. Validate readiness and a basic CRUD path.
 
+If you are running the local Docker Compose Postgres service, the quickest backup path is:
+
+```bash
+npm run postgres:backup
+```
+
+And the matching restore path is:
+
+```bash
+npm run postgres:restore -- ./backups/headless-crm-postgres-YYYYMMDD-HHMMSS.dump
+```
+
 ## Secret rotation
 
 If you rotate `JWT_SECRET` or `BETTER_AUTH_SECRET`:
