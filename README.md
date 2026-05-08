@@ -134,6 +134,24 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 
 ---
 
+## Docs Map
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - how the web app, API, auth, database, and eventing fit together
+- [SELF_HOST_LOCAL_DEPLOYMENT.md](./SELF_HOST_LOCAL_DEPLOYMENT.md) - local self-host flow for humans and agents
+- [EXTENDING_HEADLESS_CRM.md](./EXTENDING_HEADLESS_CRM.md) - where to add entities, tools, routes, and UI
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - common local install and auth/runtime issues
+- [UPGRADING.md](./UPGRADING.md) - safe upgrade checklist for SQLite and Postgres
+- [ROADMAP.md](./ROADMAP.md) - what we are actively improving next
+- [SUPPORT.md](./SUPPORT.md) - where to file bugs, ask for help, and report security issues
+- [RELEASING.md](./RELEASING.md) - maintainer release checklist
+
+## Examples
+
+- [examples/claude-desktop/mcp.json](./examples/claude-desktop/mcp.json) - MCP client config starter
+- [examples/http/provision-and-create-contact.sh](./examples/http/provision-and-create-contact.sh) - provision an agent and create a contact over HTTP
+
+---
+
 ## Features
 
 ### Core CRM
@@ -726,7 +744,9 @@ All API errors follow a consistent JSON format:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and PR guidelines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and PR guidelines.
+For extension work, start with [EXTENDING_HEADLESS_CRM.md](./EXTENDING_HEADLESS_CRM.md).
+For community expectations, see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
 ---
 

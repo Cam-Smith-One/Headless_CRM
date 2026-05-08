@@ -11,6 +11,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "oss:check": "node scripts/check-open-source-readiness.mjs",
     "test": "turbo test",
     "test:e2e": "playwright test",
     "test:selfhost": "node scripts/selfhost-smoke.mjs",

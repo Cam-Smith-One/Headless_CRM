@@ -14,8 +14,30 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  ci:
-    name: Build, Lint & Test
+  repo-hygiene:
+    name: Repo Hygiene
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Disable Corepack
+        run: corepack disable || true
+
+      - name: Clean npm install
+        run: npm install --no-package-lock
+
+      - name: Open-source readiness
+        run: npm run oss:check
+
+  postgres-core:
+    name: Postgres Build, Lint & Test
     runs-on: ubuntu-latest
 
     services:
@@ -70,3 +92,55 @@ jobs:
 
       - name: Test
         run: npx turbo test
+
+  sqlite-selfhost:
+    name: SQLite Self-Host E2E
+    runs-on: ubuntu-latest
+
+    env:
+      E2E_BASE_URL: http://127.0.0.1:3000
+      E2E_API_URL: http://127.0.0.1:3001
+      E2E_EMAIL: owner@example.com
+      E2E_PASSWORD: TestPassword123!
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Disable Corepack
+        run: corepack disable || true
+
+      - name: SQLite setup without demo data
+        run: SEED_DEMO=0 ./scripts/setup-sqlite.sh
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local self-host stack and run smoke + browser E2E
+        run: |
+          set -a
+          source .env
+          set +a
+          export E2E_REUSE_SERVER=1
+          npm run selfhost:check
+          npm run selfhost:sqlite > /tmp/headless-crm-selfhost.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID' EXIT
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3001/api/ready >/dev/null && curl -fsS http://127.0.0.1:3000/login >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:3001/api/ready >/dev/null
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npm run test:selfhost
+          npm run test:e2e

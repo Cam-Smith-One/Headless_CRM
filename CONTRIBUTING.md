@@ -112,9 +112,17 @@ packages/
 
 - Create a feature branch from `main`
 - Write descriptive PR titles
-- Test locally with `npm run dev` and verify the build with `turbo build`
+- Test locally with `npm test`, `npm run build`, and `npm run oss:check`
+- If you touched self-host, auth, or browser flows, also run `npm run selfhost:check`, `npm run test:selfhost`, and `npm run test:e2e`
 - Update README.md if adding new features or API endpoints
 - Add seed data for new entities
+
+Useful companion docs:
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [EXTENDING_HEADLESS_CRM.md](./EXTENDING_HEADLESS_CRM.md)
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+- [UPGRADING.md](./UPGRADING.md)
 
 ## License
 

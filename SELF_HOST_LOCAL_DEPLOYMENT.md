@@ -17,6 +17,13 @@ npm run selfhost:sqlite
 
 Open `http://localhost:3000/setup`, create the first admin user, then use **Agents** to provision agent keys.
 
+To exercise the true first-run owner setup from a fresh database without demo data:
+
+```bash
+SEED_DEMO=0 npm run setup:sqlite
+npm run selfhost:sqlite
+```
+
 If `3000` or `3001` are already in use, set custom ports before starting:
 
 ```bash
@@ -103,4 +110,4 @@ Use explicit `CORS_ORIGINS`; never use `*` for a team deployment.
 
 - Expand browser E2E to cover invite accept, team role changes, and key rotation UI.
 - Add a documented Postgres backup/restore story alongside the SQLite flow.
-- Add CI coverage for `test:selfhost` and the Playwright self-host suite.
+- CI now covers `test:selfhost` and the Playwright self-host suite against a no-seed SQLite first-run flow; team invite and role-change paths are the next browser gaps.

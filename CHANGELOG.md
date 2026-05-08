@@ -5,6 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.2] - 2026-05-08 - Open-source maturity and first-run CI pass
+
+This pass is about making the repo easier to trust, adopt, extend, and maintain as a public open-source project.
+
+### Added
+
+- New operator and contributor docs:
+  - `ARCHITECTURE.md`
+  - `EXTENDING_HEADLESS_CRM.md`
+  - `TROUBLESHOOTING.md`
+  - `UPGRADING.md`
+  - `ROADMAP.md`
+  - `SUPPORT.md`
+  - `RELEASING.md`
+  - `CODE_OF_CONDUCT.md`
+- New GitHub maintenance artifacts:
+  - PR template
+  - issue template config
+  - Dependabot config
+- New examples for MCP client configuration and HTTP provisioning.
+- `scripts/check-open-source-readiness.mjs` plus `npm run oss:check` for repo hygiene checks.
+
+### Changed
+
+- README now includes a docs map and example entry points for new users.
+- CONTRIBUTING now points contributors to the real verification commands and extension docs.
+- `setup-sqlite.sh` accepts `SEED_DEMO=0` so maintainers and CI can exercise the true first-run owner setup path.
+- CI now validates:
+  - repo hygiene
+  - Postgres build/lint/test
+  - SQLite production-style self-host smoke + browser E2E against a no-seed first-run flow
+
+### Why it matters
+
+The repo now does a better job of proving the two things open-source users care about most:
+
+- a fresh local install actually works for both humans and agents
+- contributors can understand where to make changes without reverse-engineering the whole codebase
+
+---
+
 ## [0.1.1] — 2026-05-05 — SQLite as a real runtime backend + E2E hardening
 
 The big follow-up to v0.1.0. The previously-documented limitation

@@ -8,6 +8,7 @@
 # Postgres. No Docker required — ideal for quick local exploration or CI.
 #
 # For the full Postgres setup, use ./scripts/setup.sh instead.
+# Set SEED_DEMO=0 to skip demo seed data and exercise the first-run owner setup.
 # =============================================================================
 
 set -euo pipefail
@@ -28,6 +29,7 @@ error()   { echo -e "${RED}[setup] ERROR:${RESET} $*" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SEED_DEMO="${SEED_DEMO:-1}"
 
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════════╗${RESET}"
@@ -123,10 +125,14 @@ info "Applying SQLite migrations..."
 npm run migrate:sqlite -w packages/db
 success "SQLite migrations applied"
 
-# ── 6. Seed the database ──────────────────────────────────────────────────────
-info "Seeding the database..."
-npm run db:seed
-success "Database seeded"
+# ── 6. Seed the database (optional) ───────────────────────────────────────────
+if [[ "$SEED_DEMO" == "0" || "$SEED_DEMO" == "false" || "$SEED_DEMO" == "FALSE" ]]; then
+  warn "Skipping demo seed data (SEED_DEMO=$SEED_DEMO)"
+else
+  info "Seeding the database..."
+  npm run db:seed
+  success "Database seeded"
+fi
 
 # ── 7. Done ───────────────────────────────────────────────────────────────────
 echo ""
@@ -138,6 +144,11 @@ echo -e "    ${BOLD}npm run selfhost:sqlite${RESET} — run a production-style l
 echo -e "    ${BOLD}npm start${RESET}            — run the CLI agent interface only"
 echo ""
 echo -e "  SQLite database file: ${BOLD}./headless-crm.db${RESET}"
+if [[ "$SEED_DEMO" == "0" || "$SEED_DEMO" == "false" || "$SEED_DEMO" == "FALSE" ]]; then
+  echo -e "  First-run flow: open ${BOLD}/setup${RESET} to create the owner account"
+else
+  echo -e "  Demo data: seeded. Open ${BOLD}/login${RESET} and invite human teammates from Settings → Team"
+fi
 echo ""
 echo -e "  Note: SQLite is great for local dev and testing. For production or"
 echo -e "  multi-process workloads, use Postgres (./scripts/setup.sh)."
