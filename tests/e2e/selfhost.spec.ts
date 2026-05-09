@@ -137,6 +137,13 @@ test("human persona can log in and edit a contact when credentials are provided"
   await visibleInputs.nth(4).fill("Senior Revenue Ops");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.locator("main").getByText("Senior Revenue Ops").first()).toBeVisible();
+
+  await page.locator("input[type='file']").setInputFiles({
+    name: "brief.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("hello from playwright"),
+  });
+  await expect(page.getByText("brief.txt")).toBeVisible();
 });
 
 test("owner can invite a teammate, teammate can join, and owner can promote them to admin", async ({ page, browser, request }) => {
@@ -171,12 +178,12 @@ test("owner can invite a teammate, teammate can join, and owner can promote them
   await expect(teammatePage).toHaveURL(/\/$/);
 
   await teammatePage.goto("/settings/team");
-  await expect(teammatePage.getByText(teammateEmail)).toBeVisible();
+  await expect(teammatePage.locator("main").getByText(teammateEmail)).toBeVisible();
   await expect(teammatePage.getByRole("button", { name: "Invite member" })).toHaveCount(0);
 
   await page.goto("/settings/team");
   await page.getByRole("button", { name: "Refresh" }).click();
-  await expect(page.getByText(teammateEmail)).toBeVisible();
+  await expect(page.locator("main").getByText(teammateEmail)).toBeVisible();
   await page.getByLabel(`Role for ${teammateEmail}`).selectOption("admin");
   await expect(page.getByLabel(`Role for ${teammateEmail}`)).toHaveValue("admin");
 
@@ -187,7 +194,7 @@ test("owner can invite a teammate, teammate can join, and owner can promote them
   await teammatePage.getByRole("button", { name: "Send invite" }).click();
   await expect(teammatePage.getByText("Invite created. Share this link with your team member:")).toBeVisible();
   await teammatePage.getByRole("button", { name: "Done" }).click();
-  await expect(teammatePage.getByText(adminInviteeEmail)).toBeVisible();
+  await expect(teammatePage.locator("main").getByText(adminInviteeEmail)).toBeVisible();
 
   await teammateContext.close();
 });

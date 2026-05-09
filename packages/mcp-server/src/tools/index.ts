@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { agentMemories } from "@headless-crm/db";
+import { ensureAttachmentStorageReady, getAttachmentMaxBytes, storeAttachment } from "@headless-crm/core";
 import type { CRM, CrmContext } from "@headless-crm/core";
 import type { EventBus } from "@headless-crm/events";
 
@@ -702,6 +703,18 @@ export function defineTools(deps: ToolDeps) {
         const { attachments } = await import("@headless-crm/db");
         const id = crypto.randomUUID();
         const buffer = Buffer.from(input.base64Content, "base64");
+        const maxBytes = getAttachmentMaxBytes();
+        if (buffer.length > maxBytes) {
+          throw new Error(`Attachment exceeds max size of ${maxBytes} bytes`);
+        }
+        await ensureAttachmentStorageReady();
+        const content = await storeAttachment({
+          id,
+          tenantId: ctx.tenantId,
+          recordType: input.recordType,
+          filename: input.filename,
+          buffer,
+        });
 
         const [record] = await db.insert(attachments).values({
           id,
@@ -711,7 +724,8 @@ export function defineTools(deps: ToolDeps) {
           filename: input.filename,
           mimeType: input.mimeType,
           size: buffer.length,
-          data: input.base64Content,
+          url: content.url,
+          data: content.data,
           uploadedByAgentId: ctx.agentId ?? null,
         }).returning();
 

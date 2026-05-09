@@ -2,7 +2,16 @@ import { timingSafeEqual, createHash, createHmac } from "crypto";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { createCRM, type CRM, type CrmContext } from "@headless-crm/core";
+import {
+  createCRM,
+  deleteAttachmentContent,
+  ensureAttachmentStorageReady,
+  getAttachmentMaxBytes,
+  type CRM,
+  type CrmContext,
+  loadAttachmentBuffer,
+  storeAttachment,
+} from "@headless-crm/core";
 import { createAuthService, type AuthService } from "@headless-crm/auth";
 import { createEventBus, type EventBus } from "@headless-crm/events";
 import { createMCPServer } from "@headless-crm/mcp-server";
@@ -1466,7 +1475,6 @@ export function createApp() {
   });
 
   // Attachments
-  // TODO: Migrate from base64 DB storage to Vercel Blob for production use.
   api.post("/attachments", requireWrite, async (c) => {
     try {
       const ctx = c.get("ctx");
@@ -1483,9 +1491,21 @@ export function createApp() {
       }
 
       const arrayBuffer = await file.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString("base64");
+      const buffer = Buffer.from(arrayBuffer);
+      const maxBytes = getAttachmentMaxBytes();
+      if (buffer.length > maxBytes) {
+        return c.json({ error: `Attachment exceeds max size of ${maxBytes} bytes` }, 400);
+      }
 
       const id = crypto.randomUUID();
+      await ensureAttachmentStorageReady();
+      const content = await storeAttachment({
+        id,
+        tenantId: ctx.tenantId,
+        recordType,
+        filename: file.name,
+        buffer,
+      });
       const [record] = await getDb().insert(attachments).values({
         id,
         tenantId: ctx.tenantId,
@@ -1494,7 +1514,8 @@ export function createApp() {
         filename: file.name,
         mimeType: file.type || "application/octet-stream",
         size: file.size,
-        data: base64,
+        url: content.url,
+        data: content.data,
         uploadedByAgentId: ctx.agentId ?? null,
       }).returning();
 
@@ -1554,10 +1575,13 @@ export function createApp() {
         );
       if (!record) return c.json({ error: "Not found" }, 404);
 
-      const buffer = Buffer.from(record.data, "base64");
-      c.header("Content-Type", record.mimeType);
-      c.header("Content-Disposition", `attachment; filename="${record.filename}"`);
-      return c.body(buffer);
+      const buffer = await loadAttachmentBuffer(record);
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": record.mimeType,
+          "Content-Disposition": `attachment; filename="${record.filename}"`,
+        },
+      });
     } catch (e: any) {
       return errorResponse(c, e);
     }
@@ -1566,6 +1590,19 @@ export function createApp() {
   api.delete("/attachments/:id", requireDelete, async (c) => {
     try {
       const ctx = c.get("ctx");
+      const [existing] = await getDb()
+        .select()
+        .from(attachments)
+        .where(
+          and(
+            eq(attachments.tenantId, ctx.tenantId),
+            eq(attachments.id, c.req.param("id")),
+          )
+        )
+        .limit(1);
+      if (!existing) return c.json({ error: "Not found" }, 404);
+
+      await deleteAttachmentContent(existing);
       const [deleted] = await getDb()
         .delete(attachments)
         .where(
@@ -1578,7 +1615,6 @@ export function createApp() {
           id: attachments.id,
           filename: attachments.filename,
         });
-      if (!deleted) return c.json({ error: "Not found" }, 404);
       return c.json(deleted);
     } catch (e: any) {
       return errorResponse(c, e);

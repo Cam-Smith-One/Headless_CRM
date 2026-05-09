@@ -162,9 +162,17 @@ export function createAuthService(db: any) {
       } else {
         // JWT auth
         const payload = await this.verifyToken(credential);
-        agentId = payload.agentId;
-        tenantId = payload.tenantId;
-        role = payload.role ?? "reader";
+        const [agent] = await db
+          .select()
+          .from(agents)
+          .where(eq(agents.id, payload.agentId))
+          .limit(1);
+        if (!agent) throw new Error("Invalid token");
+        if (agent.status !== "active") throw new Error("Agent is not active");
+
+        agentId = agent.id;
+        tenantId = agent.tenantId;
+        role = agent.role ?? "reader";
       }
 
       // Update last_active_at

@@ -77,6 +77,24 @@ interface SetupStatus {
   adminKeySet: boolean;
 }
 
+interface SystemStatus {
+  userRole: "owner" | "admin" | "member";
+  attachmentStorage: {
+    mode: "db" | "disk";
+    directory: string | null;
+    maxBytes: number;
+    exists: boolean;
+    writable: boolean;
+  };
+  services: {
+    redisConfigured: boolean;
+    resendWebhookSigningConfigured: boolean;
+    oauthEnabled: boolean;
+    corsOrigins: string[];
+  };
+  warnings: string[];
+}
+
 interface ProvisionedAgent {
   id: string;
   name: string;
@@ -91,6 +109,8 @@ export default function SettingsPage() {
   // Setup status
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
   const [setupLoading, setSetupLoading] = useState(true);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [systemStatusLoading, setSystemStatusLoading] = useState(true);
 
   // Connection test
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
@@ -138,6 +158,13 @@ export default function SettingsPage() {
       .then(setSetupStatus)
       .catch(() => setSetupStatus(null))
       .finally(() => setSetupLoading(false));
+  }, []);
+
+  useEffect(() => {
+    apiFetchNoAuth<SystemStatus>("/api/auth/system-status")
+      .then(setSystemStatus)
+      .catch(() => setSystemStatus(null))
+      .finally(() => setSystemStatusLoading(false));
   }, []);
 
   // Fetch agents when token is available
@@ -285,6 +312,72 @@ export default function SettingsPage() {
             </Card>
           ) : (
             <p className="text-xs text-red-400">Could not reach API. Is the server running?</p>
+          )}
+        </section>
+
+        {/* Security & Operations */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Security &amp; Operations</h2>
+          {systemStatusLoading ? (
+            <p className="text-xs text-muted-foreground">Checking deployment posture...</p>
+          ) : !systemStatus ? (
+            <p className="text-xs text-muted-foreground">
+              Sign in as an owner or admin to view deployment and security checks.
+            </p>
+          ) : (
+            <Card className="bg-card/50">
+              <CardContent className="p-4 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Attachment storage</p>
+                    <p className="text-sm font-medium">
+                      {systemStatus.attachmentStorage.mode === "disk" ? "Disk-backed" : "Database-backed"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Max upload size: {(systemStatus.attachmentStorage.maxBytes / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                    {systemStatus.attachmentStorage.directory && (
+                      <p className="text-[11px] font-mono text-muted-foreground break-all">
+                        {systemStatus.attachmentStorage.directory}
+                      </p>
+                    )}
+                    {systemStatus.attachmentStorage.mode === "disk" && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {systemStatus.attachmentStorage.exists ? "Directory present" : "Directory missing"}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {systemStatus.attachmentStorage.writable ? "Writable" : "Not writable"}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Runtime services</p>
+                    <div className="space-y-1 text-xs">
+                      <p>Redis: {systemStatus.services.redisConfigured ? "Configured" : "Not configured"}</p>
+                      <p>Signed email webhooks: {systemStatus.services.resendWebhookSigningConfigured ? "Configured" : "Not configured"}</p>
+                      <p>OAuth buttons: {systemStatus.services.oauthEnabled ? "Enabled" : "Disabled"}</p>
+                      <p className="break-all">CORS: {systemStatus.services.corsOrigins.join(", ") || "Not set"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {systemStatus.warnings.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-yellow-400">Warnings</p>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                      {systemStatus.warnings.map((warning) => (
+                        <li key={warning}>• {warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-xs text-green-400">No immediate configuration warnings detected.</p>
+                )}
+              </CardContent>
+            </Card>
           )}
         </section>
 

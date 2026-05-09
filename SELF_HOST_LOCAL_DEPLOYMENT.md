@@ -17,6 +17,13 @@ npm run selfhost:sqlite
 
 Open `http://localhost:3000/setup`, create the first admin user, then use **Agents** to provision agent keys.
 
+The SQLite quickstart now defaults uploads to:
+
+- `ATTACHMENTS_STORAGE=disk`
+- `ATTACHMENTS_DIR=./storage/attachments`
+
+Back up that directory together with `headless-crm.db` if you want a complete restore point.
+
 To exercise the true first-run owner setup from a fresh database without demo data:
 
 ```bash
@@ -109,6 +116,7 @@ npm run sqlite:restore -- ./backups/headless-crm-YYYYMMDD-HHMMSS.db
 ```
 
 Stop write-heavy agent jobs before restoring. Backups copy the main SQLite file and WAL/SHM sidecars when present.
+If you use disk-backed attachments, copy the attachment directory at the same time.
 
 ## Postgres backup and restore notes
 
@@ -116,6 +124,7 @@ Stop write-heavy agent jobs before restoring. Backups copy the main SQLite file 
 - Pause write-heavy jobs before restore validation.
 - For managed providers, provider-native snapshots are still the safest first line of defense.
 - The included scripts are aimed at self-hosted and local operator workflows.
+- If attachments are disk-backed, snapshot or rsync the attachment directory together with the database backup.
 
 ## Production safety checks
 

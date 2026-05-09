@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { existsSync, statSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
+import path from "node:path";
 
 const weakValues = new Set([
   "change-me-in-production",
@@ -32,6 +33,9 @@ function checkSecret(env, key, required = true) {
 const envText = existsSync(".env") ? await readFile(".env", "utf8") : "";
 const env = parseEnv(envText);
 const databaseUrl = env.DATABASE_URL || process.env.DATABASE_URL || "";
+const attachmentStorage = env.ATTACHMENTS_STORAGE || process.env.ATTACHMENTS_STORAGE || "db";
+const attachmentDir = path.resolve(process.cwd(), env.ATTACHMENTS_DIR || process.env.ATTACHMENTS_DIR || "storage/attachments");
+const attachmentMaxBytes = Number.parseInt(env.ATTACHMENTS_MAX_BYTES || process.env.ATTACHMENTS_MAX_BYTES || "10485760", 10);
 const errors = [];
 const warnings = [];
 
@@ -51,6 +55,19 @@ if (!databaseUrl) {
     if (size === 0) warnings.push(`SQLite database is empty: ${sqlitePath}`);
   }
   warnings.push("SQLite is best for solo/small-team local deploys; use Postgres for multi-process or high-write agent workloads.");
+}
+if (!Number.isFinite(attachmentMaxBytes) || attachmentMaxBytes <= 0) {
+  errors.push("ATTACHMENTS_MAX_BYTES must be a positive integer");
+}
+if (attachmentStorage === "disk") {
+  try {
+    mkdirSync(attachmentDir, { recursive: true });
+    accessSync(attachmentDir, constants.W_OK);
+  } catch {
+    errors.push(`Attachment directory is not writable: ${attachmentDir}`);
+  }
+} else {
+  warnings.push("ATTACHMENTS_STORAGE is not set to disk; uploads will stay in the database.");
 }
 if ((env.CORS_ORIGINS || process.env.CORS_ORIGINS || "").includes("*")) {
   errors.push("CORS_ORIGINS must not include * for team or production deploys");

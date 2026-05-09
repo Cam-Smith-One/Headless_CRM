@@ -744,7 +744,7 @@ All API errors follow a consistent JSON format:
 
 | Limitation | Details |
 |------------|---------|
-| **File attachment storage** | Attachments are stored as base64-encoded blobs in the database. This works for small files but is not recommended for production workloads with large or frequent uploads. A migration to Vercel Blob or S3-compatible storage is planned. |
+| **File attachment storage** | Local and self-host deploys can keep attachments on disk with `ATTACHMENTS_STORAGE=disk` and back up that directory alongside the database. Database-backed attachment storage is still available for lightweight eval environments. |
 | **No real-time push** | The dashboard polls the API for updates. WebSocket or Server-Sent Events support is not currently implemented. For real-time integrations, use webhooks. |
 | **Dual-database type abstraction** | PostgreSQL and SQLite Drizzle schemas have different TypeScript types. Service layer code branches on `db.type`. A unified abstract schema type is planned. |
 | **Approval expiration is on-read** | Expired approvals are marked as `expired` automatically when a `list` or `getPending` call is made — not via a background job. Approvals will remain as `pending` in the database until next polled. |

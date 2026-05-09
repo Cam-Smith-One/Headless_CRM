@@ -17,6 +17,10 @@ import { eq, and } from "drizzle-orm";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getDashboardRole(role: "owner" | "admin" | "member") {
+  return role === "owner" || role === "admin" ? "developer" : "reader";
+}
+
 export async function GET(request: NextRequest) {
   // Validate the Better Auth session
   const session = await auth.api.getSession({ headers: request.headers });
@@ -51,24 +55,46 @@ export async function GET(request: NextRequest) {
 
   let agentId: string;
   let agentRole: "reader" | "operator" | "developer" | "auditor";
+  const desiredRole = getDashboardRole(freshUser.role);
 
   if (existingAgent) {
     agentId = existingAgent.id;
-    agentRole = (existingAgent.role as any) ?? "operator";
+    agentRole = desiredRole;
+    if (existingAgent.role !== desiredRole || existingAgent.status !== "active") {
+      await db
+        .update(agents)
+        .set({
+          role: desiredRole,
+          status: "active",
+          updatedAt: new Date(),
+        })
+        .where(eq(agents.id, existingAgent.id));
+    }
   } else {
     // Provision a new dashboard agent scoped to this user's tenant
-    const dashboardRole =
-      freshUser.role === "owner" || freshUser.role === "admin" ? "developer" : "operator";
+    const provisionRole = desiredRole === "developer" ? "operator" : desiredRole;
 
     // Use admin key bypass — we are already authenticated as a human user
     const result = await authService.provisionAgent(freshUser.tenantId, {
       name: dashboardAgentName,
       type: "supervised",
-      role: dashboardRole,
+      role: provisionRole,
       ownerUserId: freshUser.id,
     });
     agentId = result.agent.id;
-    agentRole = dashboardRole;
+    if (provisionRole !== desiredRole) {
+      await db
+        .update(agents)
+        .set({
+          role: desiredRole,
+          status: "active",
+          updatedAt: new Date(),
+        })
+        .where(eq(agents.id, agentId));
+    } else if (result.agent.status !== "active") {
+      await authService.activateAgent(freshUser.tenantId, agentId);
+    }
+    agentRole = desiredRole;
   }
 
   // Issue a fresh 30-day JWT for this agent

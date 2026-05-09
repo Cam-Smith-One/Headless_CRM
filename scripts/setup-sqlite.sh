@@ -85,7 +85,12 @@ if [ ! -f ".env" ]; then
     echo "" >> .env
     echo "# SQLite mode (overrides the Postgres DATABASE_URL above)" >> .env
     echo "DATABASE_URL=file:$SQLITE_PATH" >> .env
+    replace_env_value "ATTACHMENTS_STORAGE" "disk"
+    replace_env_value "ATTACHMENTS_DIR" "./storage/attachments"
+    replace_env_value "ATTACHMENTS_MAX_BYTES" "10485760"
+    mkdir -p "$REPO_ROOT/storage/attachments"
     success "DATABASE_URL set to SQLite path (file:$SQLITE_PATH)"
+    success "Configured disk-backed local attachment storage"
     warn "Review .env before sharing or deploying."
   else
     error ".env.example not found. Cannot create .env."
@@ -99,6 +104,16 @@ else
     warn "Your .env DATABASE_URL does not look like a SQLite path."
     warn "For SQLite mode, set:  DATABASE_URL=file:./headless-crm.db"
   fi
+  if ! grep -q "^ATTACHMENTS_STORAGE=" .env 2>/dev/null; then
+    replace_env_value "ATTACHMENTS_STORAGE" "disk"
+  fi
+  if ! grep -q "^ATTACHMENTS_DIR=" .env 2>/dev/null; then
+    replace_env_value "ATTACHMENTS_DIR" "./storage/attachments"
+  fi
+  if ! grep -q "^ATTACHMENTS_MAX_BYTES=" .env 2>/dev/null; then
+    replace_env_value "ATTACHMENTS_MAX_BYTES" "10485760"
+  fi
+  mkdir -p "$REPO_ROOT/storage/attachments"
 fi
 
 node -e "const fs=require('fs'),crypto=require('crypto');const p='.env';let s=fs.readFileSync(p,'utf8');const weak=new Set(['','change-me-in-production','change-me-in-production-32chars!!','dev-only-change-me-in-production-32chars!!']);for(const key of ['JWT_SECRET','BETTER_AUTH_SECRET','ADMIN_API_KEY']){const m=s.match(new RegExp('^'+key+'=(.*)$','m'));const value=m?m[1]:'';if(value.length<32||weak.has(value)){const next=crypto.randomBytes(32).toString('base64url');const line=key+'='+next;if(m)s=s.replace(new RegExp('^'+key+'=.*$','m'),line);else s+='\\n'+line+'\\n';console.log('[setup] Rotated weak '+key);}}fs.writeFileSync(p,s)"
@@ -144,6 +159,7 @@ echo -e "    ${BOLD}npm run selfhost:sqlite${RESET} — run a production-style l
 echo -e "    ${BOLD}npm start${RESET}            — run the CLI agent interface only"
 echo ""
 echo -e "  SQLite database file: ${BOLD}./headless-crm.db${RESET}"
+echo -e "  Attachment storage:  ${BOLD}./storage/attachments${RESET}"
 if [[ "$SEED_DEMO" == "0" || "$SEED_DEMO" == "false" || "$SEED_DEMO" == "FALSE" ]]; then
   echo -e "  First-run flow: open ${BOLD}/setup${RESET} to create the owner account"
 else

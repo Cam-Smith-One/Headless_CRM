@@ -39,6 +39,9 @@ services:
       REDIS_URL: ${REDIS_URL:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PORT: "3001"
+      ATTACHMENTS_STORAGE: ${ATTACHMENTS_STORAGE:-disk}
+      ATTACHMENTS_DIR: ${ATTACHMENTS_DIR:-/data/attachments}
+      ATTACHMENTS_MAX_BYTES: ${ATTACHMENTS_MAX_BYTES:-10485760}
       ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY in .env}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
@@ -48,6 +51,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - attachments:/data/attachments
 
   web:
     build:
@@ -69,3 +74,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  attachments:

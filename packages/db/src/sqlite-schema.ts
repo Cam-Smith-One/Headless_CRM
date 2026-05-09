@@ -527,10 +527,10 @@ export const attachments = sqliteTable(
     recordType: text("record_type").notNull(),
     recordId: text("record_id").notNull(),
     filename: text("filename").notNull(),
-    url: text("url"),
+    url: text("url"), // disk://relative/path or future object-storage URL
     mimeType: text("mime_type").notNull(),
     size: integer("size").notNull(),
-    data: text("data"),
+    data: text("data"), // base64-encoded content for db-backed storage mode
     uploadedByAgentId: text("uploaded_by_agent_id").references(() => agents.id),
     createdAt: text("created_at")
       .notNull()

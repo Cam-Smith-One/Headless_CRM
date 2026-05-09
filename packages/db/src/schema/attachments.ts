@@ -8,9 +8,6 @@ import {
 import { tenants } from "./tenants";
 import { agents } from "./agents";
 
-// TODO: Migrate from base64 storage in `data` column to Vercel Blob for production use.
-// Base64 encoding increases storage by ~33% and is not suitable for large files.
-
 export const attachments = pgTable(
   "attachments",
   {
@@ -21,10 +18,10 @@ export const attachments = pgTable(
     recordType: text("record_type").notNull(), // "contact" | "company" | "deal" | "case"
     recordId: text("record_id").notNull(),
     filename: text("filename").notNull(),
-    url: text("url"), // future: Vercel Blob URL
+    url: text("url"), // disk://relative/path or future object-storage URL
     mimeType: text("mime_type").notNull(),
     size: integer("size").notNull(), // original file size in bytes
-    data: text("data"), // base64-encoded file content (temporary storage approach)
+    data: text("data"), // base64-encoded content for db-backed storage mode
     uploadedByAgentId: text("uploaded_by_agent_id").references(() => agents.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

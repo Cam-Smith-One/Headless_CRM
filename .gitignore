@@ -12,3 +12,4 @@ headless-crm.db
 headless-crm.db-shm
 headless-crm.db-wal
 backups/
+storage/

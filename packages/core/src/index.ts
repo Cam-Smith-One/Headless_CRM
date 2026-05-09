@@ -66,3 +66,15 @@ export {
   type CreateTriggerInput,
   type UpdateTriggerInput,
 } from "./services/pipeline-triggers";
+export {
+  deleteAttachmentContent,
+  ensureAttachmentStorageReady,
+  getAttachmentMaxBytes,
+  getAttachmentStorageSummary,
+  loadAttachmentBuffer,
+  storeAttachment,
+  type AttachmentContentRecord,
+  type AttachmentStorageMode,
+  type AttachmentStorageSummary,
+  type StoreAttachmentInput,
+} from "./attachment-storage";
