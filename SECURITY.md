@@ -58,6 +58,11 @@ A pre-public-release security audit pass closed:
 
 See [CHANGELOG.md](./CHANGELOG.md) for the full list.
 
+## Current dependency posture
+
+- `npm audit --omit=dev` is clean on the maintained branch as of 2026-05-15.
+- The web app is temporarily pinned to `next@16.3.0-canary.19` because the latest stable Next 16 release still pulls a vulnerable nested `postcss` version. Move back to stable once that fix lands in a non-canary release.
+
 ## Required production env vars
 
 The following MUST be set at runtime in production. The app refuses to

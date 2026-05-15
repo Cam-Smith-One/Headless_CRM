@@ -57,6 +57,8 @@ docker compose up
 
 The setup script creates a `.env` and generates strong local values for `JWT_SECRET`, `BETTER_AUTH_SECRET`, and `ADMIN_API_KEY`. Do not reuse these values across environments.
 
+The Postgres migration path now uses the repo-local migration runner in `packages/db/scripts/migrate-postgres.mjs`. It still reads the Drizzle SQL files in `packages/db/drizzle`, but it also ensures `pgvector` and avoids the flaky generic CLI behavior some operators were hitting on fresh local installs.
+
 For backups:
 
 ```bash

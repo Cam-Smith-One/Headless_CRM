@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.3] - 2026-05-15 - Final release hardening and deterministic Postgres setup
+
+This pass closes the last pre-release gaps around dependency audit cleanliness and fresh Postgres self-host reliability.
+
+### Changed
+
+- Runtime dependency audit is now clean: `npm audit --omit=dev` returns `0 vulnerabilities`.
+- The web workspace is pinned to `next@16.3.0-canary.19` and matching `eslint-config-next` because the latest stable Next 16 release still carries the nested `postcss` advisory path.
+- Web `dev` and `build` scripts now resolve Next through the workspace via `npm exec --workspace web -- next ...`, which avoids accidentally picking up a parent-folder install.
+- Postgres migrations now run through `packages/db/scripts/migrate-postgres.mjs`, a repo-local migration runner that:
+  - ensures the `vector` extension exists,
+  - reads the checked-in Drizzle SQL files directly,
+  - writes progress to `drizzle.__drizzle_migrations`, and
+  - removes the flaky generic CLI behavior from fresh local Postgres installs.
+
+### Verified
+
+- `npm audit --omit=dev`
+- `npm test`
+- `npm run build`
+- `npm run selfhost:check`
+- Clean Postgres local deploy smoke after fresh migrations
+
+---
+
 ## [0.1.2] - 2026-05-08 - Open-source maturity and first-run CI pass
 
 This pass is about making the repo easier to trust, adopt, extend, and maintain as a public open-source project.

@@ -86,6 +86,7 @@ npm run dev                 # API on :3001, dashboard on :3000
 - Run `npm run sqlite:backup` before upgrades or heavy agent tests.
 - Run `npm run postgres:backup` before Postgres upgrades or risky schema work.
 - Run `npm run test:selfhost` for an API/agent smoke test, or `npm run test:e2e` for browser E2E.
+- `npm audit --omit=dev` is currently clean on this branch. The web app is pinned to `next@16.3.0-canary.19` because the latest stable Next 16 line still ships a nested `postcss` advisory path.
 
 How it works:
 - Setup script writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`.
