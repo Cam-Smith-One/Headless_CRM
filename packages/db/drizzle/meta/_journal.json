@@ -29,6 +29,13 @@
       "when": 1775562496803,
       "tag": "0003_spicy_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778570804634,
+      "tag": "0004_bright_strong_guy",
+      "breakpoints": true
     }
   ]
 }

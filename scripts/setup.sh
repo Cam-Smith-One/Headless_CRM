@@ -130,6 +130,11 @@ done
 echo ""
 success "Postgres is healthy"
 
+# Ensure the pgvector extension exists before running schema migrations.
+info "Ensuring pgvector extension is enabled..."
+$DOCKER_COMPOSE exec -T postgres psql -U headless -d headless_crm -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null
+success "pgvector extension ready"
+
 # ── 5. Run database migrations ────────────────────────────────────────────────
 info "Running database migrations..."
 npm run db:migrate

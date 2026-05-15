@@ -3,6 +3,46 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 const apiURL = process.env.E2E_API_URL ?? "http://127.0.0.1:3001";
 const adminKey = process.env.ADMIN_API_KEY;
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function provisionAgent(
+  request: APIRequestContext,
+  tenantId: string,
+  name: string,
+  role: "reader" | "operator" | "developer" | "auditor",
+) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const response = await request.post(`${apiURL}/api/agents/provision`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Key": adminKey!,
+      },
+      data: {
+        tenantId,
+        name,
+        role,
+        type: "supervised",
+      },
+    });
+
+    if (response.status() === 201) {
+      return response.json();
+    }
+
+    if (response.status() === 429 && attempt < 3) {
+      const retryAfter = Number.parseInt(response.headers()["retry-after"] ?? "2", 10);
+      await sleep((Number.isFinite(retryAfter) ? retryAfter : 2) * 1000);
+      continue;
+    }
+
+    expect(response.status()).toBe(201);
+  }
+
+  throw new Error("Failed to provision agent after retries");
+}
+
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   if (!page.url().includes("/login")) return;
@@ -46,20 +86,7 @@ test("agent persona can provision, create, update, and is denied delete", async 
   test.skip(!adminKey, "ADMIN_API_KEY is required for agent E2E smoke");
 
   const tenantId = `tenant_e2e_${Date.now()}`;
-  const provision = await request.post(`${apiURL}/api/agents/provision`, {
-    headers: {
-      "Content-Type": "application/json",
-      "X-Admin-Key": adminKey!,
-    },
-    data: {
-      tenantId,
-      name: "E2E Operator Agent",
-      role: "operator",
-      type: "supervised",
-    },
-  });
-  expect(provision.status()).toBe(201);
-  const { token } = await provision.json();
+  const { token } = await provisionAgent(request, tenantId, "E2E Operator Agent", "operator");
   expect(token).toBeTruthy();
 
   const contact = await request.post(`${apiURL}/api/contacts`, {
@@ -91,6 +118,108 @@ test("agent persona can provision, create, update, and is denied delete", async 
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(stats.status()).toBe(200);
+});
+
+test("reader and auditor personas enforce the right API boundaries", async ({ request }) => {
+  test.skip(!adminKey, "ADMIN_API_KEY is required for agent persona E2E");
+
+  const tenantId = `tenant_roles_${Date.now()}`;
+  const operator = await provisionAgent(request, tenantId, "Role Operator", "operator");
+
+  const created = await request.post(`${apiURL}/api/contacts`, {
+    headers: { Authorization: `Bearer ${operator.token}` },
+    data: {
+      firstName: "Role",
+      lastName: "Seed",
+      email: `roles-${Date.now()}@example.com`,
+      title: "Seed Contact",
+    },
+  });
+  expect(created.status()).toBe(201);
+  const contact = await created.json();
+
+  const reader = await provisionAgent(request, tenantId, "Role Reader", "reader");
+
+  const readerGet = await request.get(`${apiURL}/api/contacts/${contact.id}`, {
+    headers: { Authorization: `Bearer ${reader.token}` },
+  });
+  expect(readerGet.status()).toBe(200);
+
+  const readerDenied = await request.post(`${apiURL}/api/contacts`, {
+    headers: { Authorization: `Bearer ${reader.token}` },
+    data: { firstName: "Nope", lastName: "Reader" },
+  });
+  expect(readerDenied.status()).toBe(403);
+
+  const auditor = await provisionAgent(request, tenantId, "Role Auditor", "auditor");
+
+  const auditorEvents = await request.get(`${apiURL}/api/events?limit=10`, {
+    headers: { Authorization: `Bearer ${auditor.token}` },
+  });
+  expect(auditorEvents.status()).toBe(200);
+  const auditorEventsBody = await auditorEvents.json();
+  expect(Array.isArray(auditorEventsBody)).toBeTruthy();
+  expect(auditorEventsBody.length).toBeGreaterThan(0);
+
+  const auditorLogs = await request.get(`${apiURL}/api/agents/${operator.agent.id}/logs?limit=10`, {
+    headers: { Authorization: `Bearer ${auditor.token}` },
+  });
+  expect(auditorLogs.status()).toBe(200);
+  expect(Array.isArray(await auditorLogs.json())).toBeTruthy();
+
+  const auditorDenied = await request.post(`${apiURL}/api/contacts`, {
+    headers: { Authorization: `Bearer ${auditor.token}` },
+    data: { firstName: "Nope", lastName: "Auditor" },
+  });
+  expect(auditorDenied.status()).toBe(403);
+});
+
+test("multiple operator agents can write concurrently", async ({ request }) => {
+  test.skip(!adminKey, "ADMIN_API_KEY is required for concurrency E2E");
+
+  const tenantId = `tenant_concurrency_${Date.now()}`;
+  const operators = [];
+  for (let index = 0; index < 4; index++) {
+    operators.push(
+      await provisionAgent(request, tenantId, `Burst Operator ${index + 1}`, "operator")
+    );
+  }
+  const provisioned = operators;
+
+  const creates = await Promise.all(
+    provisioned.map((agent, index) =>
+      request.post(`${apiURL}/api/contacts`, {
+        headers: { Authorization: `Bearer ${agent.token}` },
+        data: {
+          firstName: "Burst",
+          lastName: `Operator ${index + 1}`,
+          email: `burst-${Date.now()}-${index}@example.com`,
+          title: "Concurrent Operator",
+        },
+      })
+    )
+  );
+
+  for (const response of creates) {
+    expect(response.status()).toBe(201);
+  }
+  const contacts = await Promise.all(creates.map((response) => response.json()));
+
+  const updates = await Promise.all(
+    contacts.map((contact, index) =>
+      request.patch(`${apiURL}/api/contacts/${contact.id}`, {
+        headers: { Authorization: `Bearer ${provisioned[index].token}` },
+        data: {
+          title: `Concurrent Operator ${index + 1}`,
+        },
+      })
+    )
+  );
+
+  for (const response of updates) {
+    expect(response.status()).toBe(200);
+    expect((await response.json()).title).toContain("Concurrent Operator");
+  }
 });
 
 test("first-run setup can create the owner when database is empty", async ({ page, request }) => {
@@ -143,7 +272,7 @@ test("human persona can log in and edit a contact when credentials are provided"
     mimeType: "text/plain",
     buffer: Buffer.from("hello from playwright"),
   });
-  await expect(page.getByText("brief.txt")).toBeVisible();
+  await expect(page.locator("main").getByText("brief.txt").first()).toBeVisible();
 });
 
 test("owner can invite a teammate, teammate can join, and owner can promote them to admin", async ({ page, browser, request }) => {
@@ -165,6 +294,7 @@ test("owner can invite a teammate, teammate can join, and owner can promote them
   await expect(page.getByText("Invite created. Share this link with your team member:")).toBeVisible();
   const inviteUrl = ((await page.locator(".fixed code").textContent()) ?? "").trim();
   expect(inviteUrl).toContain("/signup?token=");
+  const inviteBaseUrl = new URL(inviteUrl).origin;
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByText(teammateEmail)).toBeVisible();
 
@@ -177,8 +307,8 @@ test("owner can invite a teammate, teammate can join, and owner can promote them
   await teammatePage.getByRole("button", { name: "Create account" }).click();
   await expect(teammatePage).toHaveURL(/\/$/);
 
-  await teammatePage.goto("/settings/team");
-  await expect(teammatePage.locator("main").getByText(teammateEmail)).toBeVisible();
+  await teammatePage.goto(`${inviteBaseUrl}/settings/team`);
+  await expect(teammatePage).toHaveURL(/\/settings\/team$/);
   await expect(teammatePage.getByRole("button", { name: "Invite member" })).toHaveCount(0);
 
   await page.goto("/settings/team");
@@ -187,7 +317,7 @@ test("owner can invite a teammate, teammate can join, and owner can promote them
   await page.getByLabel(`Role for ${teammateEmail}`).selectOption("admin");
   await expect(page.getByLabel(`Role for ${teammateEmail}`)).toHaveValue("admin");
 
-  await teammatePage.goto("/settings/team");
+  await teammatePage.goto(`${inviteBaseUrl}/settings/team`);
   await expect(teammatePage.getByRole("button", { name: "Invite member" })).toBeVisible();
   await teammatePage.getByRole("button", { name: "Invite member" }).click();
   await teammatePage.getByPlaceholder("colleague@company.com").fill(adminInviteeEmail);

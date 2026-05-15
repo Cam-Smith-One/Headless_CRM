@@ -10,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U headless"]
+      test: ["CMD-SHELL", "pg_isready -U headless -d headless_crm"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -64,12 +64,16 @@ services:
       - "3000:3000"
     environment:
       HOSTNAME: "0.0.0.0"
+      DATABASE_URL: postgresql://headless:headless@postgres:5432/headless_crm
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
     depends_on:
-      - api
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
 
 volumes:
   pgdata:

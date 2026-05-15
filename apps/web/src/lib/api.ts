@@ -8,12 +8,34 @@ function getStoredToken(): string | null {
   try { return localStorage.getItem("hcrm_token"); } catch { return null; }
 }
 
+async function resolveAuthToken(explicitToken?: string): Promise<string | null> {
+  if (explicitToken) return explicitToken;
+
+  const stored = getStoredToken();
+  if (stored) return stored;
+  if (typeof window === "undefined") return null;
+
+  try {
+    const res = await fetch("/api/auth/session-token");
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => ({}));
+    if (body?.token) {
+      localStorage.setItem("hcrm_token", body.token);
+      return body.token;
+    }
+  } catch {
+    // Fall through and let the caller receive the API auth error.
+  }
+
+  return null;
+}
+
 export async function apiFetch<T>(
   path: string,
   options?: RequestInit & { token?: string }
 ): Promise<T> {
   const { token, ...init } = options ?? {};
-  const authToken = token || getStoredToken();
+  const authToken = await resolveAuthToken(token);
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
@@ -58,7 +80,7 @@ export async function apiFetchBlob(
   path: string,
   options?: { token?: string }
 ): Promise<Blob> {
-  const authToken = options?.token || getStoredToken();
+  const authToken = await resolveAuthToken(options?.token);
   const res = await fetch(`${API_URL}${path}`, {
     headers: {
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),

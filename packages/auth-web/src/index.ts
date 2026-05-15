@@ -3,6 +3,37 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb, isSqlite } from "@headless-crm/db";
 import * as schema from "@headless-crm/db";
 
+function withLoopbackAliases(urls: Array<string | undefined>): string[] {
+  const trusted = new Set<string>();
+
+  for (const raw of urls) {
+    if (!raw) continue;
+    trusted.add(raw);
+
+    try {
+      const url = new URL(raw);
+      if (url.hostname === "localhost") {
+        const alias = new URL(raw);
+        alias.hostname = "127.0.0.1";
+        trusted.add(alias.origin);
+      } else if (url.hostname === "127.0.0.1") {
+        const alias = new URL(raw);
+        alias.hostname = "localhost";
+        trusted.add(alias.origin);
+      } else {
+        trusted.add(url.origin);
+      }
+    } catch {
+      // Ignore malformed values; Better Auth will validate real requests.
+    }
+  }
+
+  return [...trusted];
+}
+
+const authBaseURL =
+  process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 /**
  * Better Auth server instance for human user authentication.
  *
@@ -65,7 +96,12 @@ if (
 
 export const auth = betterAuth({
   secret: resolveBetterAuthSecret(),
-  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  baseURL: authBaseURL,
+  trustedOrigins: withLoopbackAliases([
+    authBaseURL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.BETTER_AUTH_URL,
+  ]),
 
   // Switch the Better Auth Drizzle adapter's provider to match the active
   // backend. Without this, signup/sign-in throws against a SQLite DATABASE_URL
