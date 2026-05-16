@@ -16,9 +16,15 @@ interface Deal {
   name: string;
   value: string;
   companyId: string;
+  companyName: string;
   createdByAgentId: string;
   daysInStage: number;
   stage?: string;
+}
+
+interface CompanyOption {
+  id: string;
+  name: string;
 }
 
 interface Stage {
@@ -40,18 +46,20 @@ function getStageColor(index: number): string {
   return STAGE_COLOR_POOL[index % STAGE_COLOR_POOL.length];
 }
 
-function organizeDealsIntoStages(deals: any[], stageOrder: string[]): Stage[] {
+function organizeDealsIntoStages(deals: any[], stageOrder: string[], companyMap: Record<string, string>): Stage[] {
   const stageMap: Record<string, Deal[]> = {};
   for (const name of stageOrder) stageMap[name] = [];
 
   for (const d of deals) {
     const stageName = d.stage ?? stageOrder[0] ?? "Prospecting";
-    const val = typeof d.value === "number" ? `$${d.value.toLocaleString()}` : (d.value ?? "$0");
+    const numVal = typeof d.value === "number" ? d.value : Number(d.value) || 0;
+    const val = numVal > 0 ? `$${numVal.toLocaleString()}` : "—";
     const deal: Deal = {
       id: d.id,
       name: d.name,
       value: val,
       companyId: d.companyId ?? "",
+      companyName: d.companyId ? (companyMap[d.companyId] ?? "") : "",
       createdByAgentId: d.createdByAgentId ?? "",
       daysInStage: d.updatedAt ? Math.floor((Date.now() - new Date(d.updatedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0,
     };
@@ -79,6 +87,8 @@ export default function DealsPage() {
   const [stageOrder, setStageOrder] = useState<string[]>(DEFAULT_STAGE_ORDER);
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGE_ORDER.map(name => ({ name, deals: [] })));
   const [allDeals, setAllDeals] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [companyMap, setCompanyMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -88,7 +98,7 @@ export default function DealsPage() {
   const [error, setError] = useState("");
   const [createCustomFields, setCreateCustomFields] = useState<Record<string, unknown>>({});
 
-  // Fetch pipelines on mount
+  // Fetch pipelines and companies on mount
   useEffect(() => {
     apiFetch<PipelineOption[]>("/api/pipelines", { token })
       .then((data) => {
@@ -102,6 +112,15 @@ export default function DealsPage() {
         }
       })
       .catch(() => {});
+    apiFetch<any>("/api/companies?limit=500", { token })
+      .then((res) => {
+        const data: CompanyOption[] = (Array.isArray(res) ? res : res?.data) ?? [];
+        setCompanies(data);
+        const map: Record<string, string> = {};
+        for (const c of data) map[c.id] = c.name;
+        setCompanyMap(map);
+      })
+      .catch(() => {});
   }, [token]);
 
   const fetchDeals = useCallback(() => {
@@ -110,11 +129,11 @@ export default function DealsPage() {
       .then((res) => {
         const data = Array.isArray(res) ? res : res?.data;
         setAllDeals(data ?? []);
-        setStages(organizeDealsIntoStages(data ?? [], stageOrder));
+        setStages(organizeDealsIntoStages(data ?? [], stageOrder, companyMap));
       })
       .catch(() => {})
       .finally(() => { if (isFirst.current) { setLoading(false); isFirst.current = false; } });
-  }, [token, selectedPipelineId, stageOrder]);
+  }, [token, selectedPipelineId, stageOrder, companyMap]);
 
   function handlePipelineChange(pipelineId: string) {
     setSelectedPipelineId(pipelineId);
@@ -133,7 +152,7 @@ export default function DealsPage() {
         name: formData.name,
         stage: formData.stage,
       };
-      if (formData.value) payload.value = formData.value;
+      if (formData.value) payload.value = Number(formData.value);
       if (selectedPipelineId) payload.pipelineId = selectedPipelineId;
       if (formData.companyId) payload.companyId = formData.companyId;
       if (Object.keys(createCustomFields).length > 0) payload.customFields = createCustomFields;
@@ -163,7 +182,7 @@ export default function DealsPage() {
     return stages.map((stage) => ({
       ...stage,
       deals: stage.deals.filter((d) =>
-        [d.name, stage.name, d.companyId].filter(Boolean).some((f) => String(f).toLowerCase().includes(q))
+        [d.name, stage.name, d.companyName].filter(Boolean).some((f) => String(f).toLowerCase().includes(q))
       ),
     }));
   }, [stages, search]);
@@ -237,7 +256,7 @@ export default function DealsPage() {
                               {deal.value}
                             </span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground mt-1 font-mono">{deal.companyId || "—"}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">{deal.companyName || "—"}</p>
                           <div className="flex items-center justify-between mt-2">
                             <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-5">
                               {deal.createdByAgentId ? deal.createdByAgentId.slice(0, 12) + "…" : "—"}
@@ -279,8 +298,11 @@ export default function DealsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Company ID (optional)</label>
-                <Input className="mt-1 text-xs font-mono" value={formData.companyId} onChange={(e) => setFormData({ ...formData, companyId: e.target.value })} placeholder="co_..." />
+                <label className="text-xs text-muted-foreground">Company (optional)</label>
+                <select className="mt-1 w-full rounded-md border border-border bg-secondary px-3 py-2 text-xs text-foreground" value={formData.companyId} onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}>
+                  <option value="">No company</option>
+                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
               </div>
               <CustomFieldsFormFields collection="deals" values={createCustomFields} onChange={setCreateCustomFields} />
             </div>

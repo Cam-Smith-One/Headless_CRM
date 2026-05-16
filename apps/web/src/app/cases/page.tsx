@@ -33,11 +33,12 @@ export default function CasesPage() {
   const [cases, setCases] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
+  const [deals, setDeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const isFirst = useRef(true);
-  const [formData, setFormData] = useState({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "" });
+  const [formData, setFormData] = useState({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "", dealId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [createCustomFields, setCreateCustomFields] = useState<Record<string, unknown>>({});
@@ -53,6 +54,12 @@ export default function CasesPage() {
     for (const c of companies) map[c.id] = c.name;
     return map;
   }, [companies]);
+
+  const dealMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const d of deals) map[d.id] = d.name;
+    return map;
+  }, [deals]);
 
   function fetchCases() {
     apiFetch<any>("/api/cases", { token })
@@ -76,6 +83,12 @@ export default function CasesPage() {
       .catch(() => {});
   }
 
+  function fetchDeals() {
+    apiFetch<any>("/api/deals?limit=500", { token })
+      .then((res) => { const data = Array.isArray(res) ? res : res?.data; if (data) setDeals(data); })
+      .catch(() => {});
+  }
+
   async function handleCreate() {
     setSubmitting(true);
     setError("");
@@ -89,10 +102,11 @@ export default function CasesPage() {
       if (formData.description) payload.description = formData.description;
       if (formData.category) payload.category = formData.category;
       if (formData.companyId) payload.companyId = formData.companyId;
+      if (formData.dealId) payload.dealId = formData.dealId;
       if (Object.keys(createCustomFields).length > 0) payload.customFields = createCustomFields;
       await apiPost("/api/cases", payload, token);
       setShowModal(false);
-      setFormData({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "" });
+      setFormData({ title: "", description: "", status: "open", priority: "medium", category: "general", contactId: "", companyId: "", dealId: "" });
       setCreateCustomFields({});
       fetchCases();
     } catch (e: any) {
@@ -108,6 +122,7 @@ export default function CasesPage() {
     fetchCases();
     fetchContacts();
     fetchCompanies();
+    fetchDeals();
     const id = setInterval(fetchCases, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [token]);
@@ -159,6 +174,7 @@ export default function CasesPage() {
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Category</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Contact</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Company</th>
+                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Deal</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Assigned Agent</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Created</th>
               </tr>
@@ -194,6 +210,9 @@ export default function CasesPage() {
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {c.companyId ? (companyMap[c.companyId] || c.companyId.slice(0, 12) + "…") : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {c.dealId ? (dealMap[c.dealId] || c.dealId.slice(0, 12) + "…") : "—"}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                     {c.assignedAgentId ? c.assignedAgentId.slice(0, 12) + "…" : "—"}
@@ -237,6 +256,15 @@ export default function CasesPage() {
                   <option value="">None</option>
                   {companies.map((c) => (
                     <option key={c.id} value={c.id}>{c.name || c.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Deal (optional)</label>
+                <select className="mt-1 w-full rounded-md border border-border bg-secondary px-3 py-2 text-xs text-foreground" value={formData.dealId} onChange={(e) => setFormData({ ...formData, dealId: e.target.value })}>
+                  <option value="">None</option>
+                  {deals.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
                 </select>
               </div>

@@ -262,7 +262,7 @@ export const activities = sqliteTable(
     tenantId: text("tenant_id")
       .notNull()
       .references(() => tenants.id),
-    type: text("type").notNull(),
+    type: text("type", { enum: ["call", "email", "meeting", "note", "task", "agent_action"] }).notNull(),
     subject: text("subject"),
     body: text("body"),
     direction: text("direction"),

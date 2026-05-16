@@ -6,7 +6,7 @@ import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
 
 export const createDealSchema = z.object({
   name: z.string().min(1),
-  value: z.string().optional(),
+  value: z.number().nonnegative().optional(),
   currency: z.string().default("USD"),
   stage: z.string().min(1),
   pipelineId: z.string().optional(),
@@ -21,6 +21,12 @@ export const updateDealSchema = createDealSchema.partial();
 
 export type CreateDealInput = z.infer<typeof createDealSchema>;
 export type UpdateDealInput = z.infer<typeof updateDealSchema>;
+
+// Drizzle returns numeric columns as strings from postgres-js. Coerce here so
+// callers always receive a JS number (or null), never a string.
+function normalizeDeal(deal: any) {
+  return { ...deal, value: deal.value != null ? Number(deal.value) : null };
+}
 
 export function createDealsService(
   db: any,
@@ -58,7 +64,7 @@ export function createDealsService(
         changes: {},
       });
 
-      return record;
+      return normalizeDeal(record);
     },
 
     async getById(ctx: CrmContext, id: string) {
@@ -66,7 +72,7 @@ export function createDealsService(
         .select()
         .from(deals)
         .where(and(eq(deals.id, id), eq(deals.tenantId, ctx.tenantId)));
-      return record ?? null;
+      return record ? normalizeDeal(record) : null;
     },
 
     async update(ctx: CrmContext, id: string, input: UpdateDealInput) {
@@ -114,7 +120,7 @@ export function createDealsService(
         });
       }
 
-      return record;
+      return normalizeDeal(record);
     },
 
     async delete(ctx: CrmContext, id: string) {
@@ -137,7 +143,7 @@ export function createDealsService(
         changes: { stateCode: { before: existing.stateCode, after: "archived" } },
       });
 
-      return record;
+      return normalizeDeal(record);
     },
 
     async query(
@@ -167,7 +173,7 @@ export function createDealsService(
         .from(deals)
         .where(whereCondition);
 
-      return { data, total: Number(count), limit, offset, hasMore: offset + data.length < Number(count) };
+      return { data: data.map(normalizeDeal), total: Number(count), limit, offset, hasMore: offset + data.length < Number(count) };
     },
 
     async addContact(ctx: CrmContext, dealId: string, contactId: string) {
