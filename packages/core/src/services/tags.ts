@@ -118,7 +118,13 @@ export function createTagsService(db: any, events: EventEmitter) {
         cases,
         activities,
       };
-      const table = tableForType[parsed.recordType];
+      // Accept both singular ("contact") and plural ("contacts") forms.
+      const singularToPlural: Record<string, string> = {
+        contact: "contacts", company: "companies", deal: "deals",
+        case: "cases", activity: "activities",
+      };
+      const resolvedType = singularToPlural[parsed.recordType] ?? parsed.recordType;
+      const table = tableForType[resolvedType];
       if (!table) {
         throw new Error(
           `Unsupported recordType '${parsed.recordType}'. Allowed: ${Object.keys(tableForType).join(", ")}`,
@@ -129,14 +135,14 @@ export function createTagsService(db: any, events: EventEmitter) {
         .from(table)
         .where(and(eq(table.id, parsed.recordId), eq(table.tenantId, ctx.tenantId)))
         .limit(1);
-      if (!row) throw new Error(`${parsed.recordType} record ${parsed.recordId} not found`);
+      if (!row) throw new Error(`${resolvedType} record ${parsed.recordId} not found`);
 
       await db
         .insert(recordTags)
         .values({
           tagId: parsed.tagId,
           recordId: parsed.recordId,
-          recordType: parsed.recordType,
+          recordType: resolvedType,
         })
         .onConflictDoNothing();
 
@@ -148,13 +154,19 @@ export function createTagsService(db: any, events: EventEmitter) {
       const tag = await this.getById(ctx, parsed.tagId);
       if (!tag) throw new Error(`Tag ${parsed.tagId} not found`);
 
+      const singularToPlural: Record<string, string> = {
+        contact: "contacts", company: "companies", deal: "deals",
+        case: "cases", activity: "activities",
+      };
+      const resolvedType = singularToPlural[parsed.recordType] ?? parsed.recordType;
+
       await db
         .delete(recordTags)
         .where(
           and(
             eq(recordTags.tagId, parsed.tagId),
             eq(recordTags.recordId, parsed.recordId),
-            eq(recordTags.recordType, parsed.recordType),
+            eq(recordTags.recordType, resolvedType),
           ),
         );
       return { ok: true };
@@ -162,6 +174,11 @@ export function createTagsService(db: any, events: EventEmitter) {
 
     /** List all tags attached to a given record. */
     async listForRecord(_ctx: CrmContext, recordType: string, recordId: string) {
+      const singularToPlural: Record<string, string> = {
+        contact: "contacts", company: "companies", deal: "deals",
+        case: "cases", activity: "activities",
+      };
+      const resolvedType = singularToPlural[recordType] ?? recordType;
       // Join through record_tags. Tag rows will be filtered to caller's tenant
       // by joining on tags.tenantId.
       const rows = await db
@@ -176,7 +193,7 @@ export function createTagsService(db: any, events: EventEmitter) {
         .where(
           and(
             eq(recordTags.recordId, recordId),
-            eq(recordTags.recordType, recordType),
+            eq(recordTags.recordType, resolvedType),
             eq(tags.tenantId, _ctx.tenantId),
           ),
         );
