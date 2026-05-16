@@ -10,10 +10,10 @@ export function getOpenAPISpec() {
     openapi: "3.1.0",
     info: {
       title: "Headless CRM API",
-      version: "0.1.0",
+      version: "0.1.2",
       description:
-        "Agent-first headless CRM with MCP-native interface for AI agents. Provides full CRUD for contacts, companies, deals, cases, webhooks, custom fields, activities, events, agents and dashboard stats.",
-      license: { name: "MIT" },
+        "Agent-first headless CRM with MCP-native interface for AI agents. Provides full CRUD for contacts, companies, deals, cases, pipelines, activities, tags, pipeline triggers, approvals, attachments, notifications, webhooks, custom fields, emails, events, and agents.",
+      license: { name: "AGPL-3.0", url: "https://www.gnu.org/licenses/agpl-3.0.html" },
     },
     servers: [{ url: "/", description: "Current deployment" }],
 
@@ -26,7 +26,7 @@ export function getOpenAPISpec() {
           type: "http",
           scheme: "bearer",
           description:
-            "JWT or agent API key obtained from POST /api/agents/provision.",
+            "JWT or agent API key obtained from POST /api/agents/provision. Role-based: reader < operator < developer < auditor (audit-specific).",
         },
         AdminKey: {
           type: "apiKey",
@@ -146,7 +146,7 @@ export function getOpenAPISpec() {
             id: { type: "string" },
             tenantId: { type: "string" },
             name: { type: "string" },
-            value: { type: ["string", "null"] },
+            value: { type: ["number", "null"] },
             currency: { type: ["string", "null"] },
             stage: { type: "string" },
             pipelineId: { type: "string" },
@@ -164,13 +164,13 @@ export function getOpenAPISpec() {
         },
         DealCreate: {
           type: "object",
-          required: ["name", "stage", "pipelineId"],
+          required: ["name", "stage"],
           properties: {
             name: { type: "string" },
-            value: { type: "string" },
+            value: { type: "number" },
             currency: { type: "string" },
             stage: { type: "string" },
-            pipelineId: { type: "string" },
+            pipelineId: { type: "string", description: "Defaults to the tenant's first pipeline if omitted." },
             companyId: { type: "string" },
             closeDate: { type: "string", format: "date-time" },
             ownerAgentId: { type: "string" },
@@ -181,7 +181,7 @@ export function getOpenAPISpec() {
           type: "object",
           properties: {
             name: { type: "string" },
-            value: { type: "string" },
+            value: { type: "number" },
             currency: { type: "string" },
             stage: { type: "string" },
             pipelineId: { type: "string" },
@@ -191,6 +191,81 @@ export function getOpenAPISpec() {
             stateCode: { type: "string" },
             statusCode: { type: "string" },
             customFields: { type: "object", additionalProperties: true },
+          },
+        },
+
+        // ── Pipeline ──────────────────────────────────────────────
+        Pipeline: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            name: { type: "string" },
+            stages: { type: "array", items: { type: "string" } },
+            isDefault: { type: "boolean" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        PipelineCreate: {
+          type: "object",
+          required: ["name", "stages"],
+          properties: {
+            name: { type: "string" },
+            stages: { type: "array", items: { type: "string" } },
+            isDefault: { type: "boolean" },
+          },
+        },
+        PipelineUpdate: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            stages: { type: "array", items: { type: "string" } },
+            isDefault: { type: "boolean" },
+          },
+        },
+
+        // ── Pipeline Trigger ──────────────────────────────────────
+        PipelineTrigger: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            pipelineId: { type: "string" },
+            fromStage: { type: "string" },
+            toStage: { type: "string" },
+            triggerType: { type: "string" },
+            conditionField: { type: ["string", "null"] },
+            conditionOperator: { type: ["string", "null"] },
+            conditionValue: { type: ["string", "null"] },
+            active: { type: "boolean" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        PipelineTriggerCreate: {
+          type: "object",
+          required: ["pipelineId", "fromStage", "toStage", "triggerType"],
+          properties: {
+            pipelineId: { type: "string" },
+            fromStage: { type: "string" },
+            toStage: { type: "string" },
+            triggerType: { type: "string" },
+            conditionField: { type: "string" },
+            conditionOperator: { type: "string" },
+            conditionValue: { type: "string" },
+          },
+        },
+        PipelineTriggerUpdate: {
+          type: "object",
+          properties: {
+            fromStage: { type: "string" },
+            toStage: { type: "string" },
+            triggerType: { type: "string" },
+            conditionField: { type: "string" },
+            conditionOperator: { type: "string" },
+            conditionValue: { type: "string" },
+            active: { type: "boolean" },
           },
         },
 
@@ -249,6 +324,37 @@ export function getOpenAPISpec() {
           },
         },
 
+        // ── Tag ───────────────────────────────────────────────────
+        Tag: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            name: { type: "string" },
+            color: { type: ["string", "null"] },
+            objectType: { type: "string" },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
+        TagCreate: {
+          type: "object",
+          required: ["name", "objectType"],
+          properties: {
+            name: { type: "string" },
+            color: { type: "string" },
+            objectType: { type: "string", enum: ["contact", "company", "deal", "case"] },
+          },
+        },
+        TagAttach: {
+          type: "object",
+          required: ["tagId", "recordId", "recordType"],
+          properties: {
+            tagId: { type: "string" },
+            recordId: { type: "string" },
+            recordType: { type: "string", enum: ["contact", "company", "deal", "case"] },
+          },
+        },
+
         // ── Agent ─────────────────────────────────────────────────
         Agent: {
           type: "object",
@@ -257,7 +363,7 @@ export function getOpenAPISpec() {
             tenantId: { type: "string" },
             name: { type: "string" },
             type: { type: "string", enum: ["autonomous", "supervised", "scheduled", "reactive"] },
-            status: { type: "string", enum: ["active", "suspended", "decommissioned"] },
+            status: { type: "string", enum: ["active", "pending_approval", "suspended", "decommissioned"] },
             role: { type: "string", enum: ["reader", "operator", "developer", "auditor"] },
             ownerUserId: { type: ["string", "null"] },
             policyId: { type: ["string", "null"] },
@@ -282,6 +388,23 @@ export function getOpenAPISpec() {
           properties: {
             agent: { $ref: "#/components/schemas/Agent" },
             apiKey: { type: "string", description: "Plaintext API key — shown only once." },
+          },
+        },
+
+        // ── Approval ──────────────────────────────────────────────
+        Approval: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            requestedByAgentId: { type: "string" },
+            approvedByAgentId: { type: ["string", "null"] },
+            action: { type: "string" },
+            payload: { type: "object", additionalProperties: true },
+            status: { type: "string", enum: ["pending", "approved", "rejected", "expired"] },
+            expiresAt: { type: ["string", "null"], format: "date-time" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
           },
         },
 
@@ -418,6 +541,38 @@ export function getOpenAPISpec() {
           },
         },
 
+        // ── Attachment ────────────────────────────────────────────
+        Attachment: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            filename: { type: "string" },
+            mimeType: { type: "string" },
+            size: { type: "integer" },
+            recordType: { type: "string" },
+            recordId: { type: "string" },
+            createdByAgentId: { type: ["string", "null"] },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
+
+        // ── Notification ──────────────────────────────────────────
+        Notification: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            agentId: { type: ["string", "null"] },
+            type: { type: "string" },
+            title: { type: "string" },
+            body: { type: ["string", "null"] },
+            read: { type: "boolean" },
+            metadata: { type: "object", additionalProperties: true },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
+
         // ── Event (audit) ─────────────────────────────────────────
         CrmEvent: {
           type: "object",
@@ -514,12 +669,19 @@ export function getOpenAPISpec() {
       { name: "Contacts", description: "Contact records" },
       { name: "Companies", description: "Company records" },
       { name: "Deals", description: "Deal / opportunity records" },
+      { name: "Pipelines", description: "Sales pipelines and stages" },
+      { name: "Pipeline Triggers", description: "Automatic deal-advance rules" },
       { name: "Cases", description: "Support case records" },
-      { name: "Activities", description: "Activity log" },
-      { name: "Events", description: "Audit event trail" },
+      { name: "Tags", description: "Tag definitions and record associations" },
+      { name: "Activities", description: "Activity log (calls, emails, meetings, notes)" },
+      { name: "Approvals", description: "Agent approval workflows" },
+      { name: "Attachments", description: "File attachments on CRM records" },
+      { name: "Notifications", description: "In-app notification feed" },
+      { name: "Events", description: "Immutable audit event trail (auditor role required)" },
       { name: "Agents", description: "AI agent management" },
       { name: "Webhooks", description: "Webhook subscriptions and deliveries" },
-      { name: "Custom Fields", description: "Custom field definitions" },
+      { name: "Emails", description: "Outbound email via Resend" },
+      { name: "Custom Fields", description: "Schema extension — developer role required for write" },
       { name: "Stats", description: "Dashboard statistics" },
       { name: "MCP", description: "Model Context Protocol endpoint" },
       { name: "System", description: "Health checks, setup, and docs" },
@@ -550,7 +712,7 @@ export function getOpenAPISpec() {
           responses: {
             "200": {
               description: "Setup configuration status",
-              content: { "application/json": { schema: { type: "object", properties: { configured: { type: "boolean" }, agentCount: { type: "integer" }, adminKeySet: { type: "boolean" } } } } },
+              content: { "application/json": { schema: { type: "object", properties: { configured: { type: "boolean" } }, required: ["configured"] } } },
             },
           },
         },
@@ -561,7 +723,7 @@ export function getOpenAPISpec() {
         post: {
           tags: ["Agents"],
           summary: "Provision a new agent (admin bootstrap)",
-          description: "Creates a new agent and returns its API key. Requires the ADMIN_API_KEY header instead of Bearer auth.",
+          description: "Creates a new agent and returns its API key. Requires the ADMIN_API_KEY header instead of Bearer auth. Developer-role agents are created in `pending_approval` status and must be activated via /api/agents/:id/approve.",
           security: [{ AdminKey: [] }],
           requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/AgentProvision" } } } },
           responses: {
@@ -600,6 +762,44 @@ export function getOpenAPISpec() {
           { name: "pipelineId", in: "query", schema: { type: "string" } },
         ],
       }),
+      "/api/deals/{id}/contacts": {
+        get: {
+          tags: ["Deals"],
+          summary: "List contacts linked to a deal",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Contact list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Contact" } } } } },
+          },
+        },
+        post: {
+          tags: ["Deals"],
+          summary: "Link a contact to a deal",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["contactId"], properties: { contactId: { type: "string" } } } } } },
+          responses: {
+            "201": { description: "Contact linked" },
+            "404": { description: "Deal or contact not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/deals/{id}/contacts/{contactId}": {
+        delete: {
+          tags: ["Deals"],
+          summary: "Unlink a contact from a deal",
+          parameters: [
+            { $ref: "#/components/parameters/IdParam" },
+            { name: "contactId", in: "path", required: true, schema: { type: "string" } },
+          ],
+          responses: { "200": { description: "Contact unlinked" } },
+        },
+      },
+
+      // ── Pipelines ─────────────────────────────────────────────
+      ...crudPaths("pipelines", "Pipeline", "Pipelines", {
+        listParams: [],
+        createSchema: "PipelineCreate",
+        updateSchema: "PipelineUpdate",
+      }),
 
       // ── Cases ─────────────────────────────────────────────────
       ...crudPaths("cases", "Case", "Cases", {
@@ -612,8 +812,91 @@ export function getOpenAPISpec() {
         ],
       }),
 
+      // ── Pipeline Triggers ─────────────────────────────────────
+      ...crudPaths("pipeline-triggers", "PipelineTrigger", "Pipeline Triggers", {
+        listParams: [{ name: "pipelineId", in: "query", schema: { type: "string" } }],
+        createSchema: "PipelineTriggerCreate",
+        updateSchema: "PipelineTriggerUpdate",
+      }),
+
+      // ── Tags ──────────────────────────────────────────────────
+      "/api/tags": {
+        get: {
+          tags: ["Tags"],
+          summary: "List tags",
+          parameters: [
+            { name: "objectType", in: "query", schema: { type: "string", enum: ["contact", "company", "deal", "case"] } },
+          ],
+          responses: {
+            "200": { description: "Tag list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Tag" } } } } },
+          },
+        },
+        post: {
+          tags: ["Tags"],
+          summary: "Create a tag",
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/TagCreate" } } } },
+          responses: {
+            "201": { description: "Tag created", content: { "application/json": { schema: { $ref: "#/components/schemas/Tag" } } } },
+          },
+        },
+      },
+      "/api/tags/{id}": {
+        delete: {
+          tags: ["Tags"],
+          summary: "Delete a tag",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: { "200": { description: "Tag deleted" } },
+        },
+      },
+      "/api/tags/attach": {
+        post: {
+          tags: ["Tags"],
+          summary: "Attach a tag to a record",
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/TagAttach" } } } },
+          responses: {
+            "201": { description: "Tag attached" },
+            "404": { description: "Tag or record not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/tags/detach": {
+        post: {
+          tags: ["Tags"],
+          summary: "Detach a tag from a record",
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/TagAttach" } } } },
+          responses: { "200": { description: "Tag detached" } },
+        },
+      },
+      "/api/tags/record/{type}/{id}": {
+        get: {
+          tags: ["Tags"],
+          summary: "List tags for a record",
+          parameters: [
+            { name: "type", in: "path", required: true, schema: { type: "string", enum: ["contact", "company", "deal", "case"] } },
+            { $ref: "#/components/parameters/IdParam" },
+          ],
+          responses: {
+            "200": { description: "Tag list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Tag" } } } } },
+          },
+        },
+      },
+
       // ── Activities ────────────────────────────────────────────
       "/api/activities": {
+        get: {
+          tags: ["Activities"],
+          summary: "List activities",
+          parameters: [
+            { $ref: "#/components/parameters/LimitParam" },
+            { $ref: "#/components/parameters/OffsetParam" },
+            { name: "type", in: "query", schema: { type: "string", enum: ["call", "email", "meeting", "note", "task", "agent_action"] } },
+            { name: "contactId", in: "query", schema: { type: "string" } },
+            { name: "dealId", in: "query", schema: { type: "string" } },
+          ],
+          responses: {
+            "200": { description: "Activity list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Activity" } } } } },
+          },
+        },
         post: {
           tags: ["Activities"],
           summary: "Log an activity",
@@ -623,18 +906,182 @@ export function getOpenAPISpec() {
           },
         },
       },
+      "/api/activities/{id}": {
+        get: {
+          tags: ["Activities"],
+          summary: "Get an activity by ID",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Activity", content: { "application/json": { schema: { $ref: "#/components/schemas/Activity" } } } },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+
+      // ── Approvals ─────────────────────────────────────────────
+      "/api/approvals": {
+        get: {
+          tags: ["Approvals"],
+          summary: "List approvals",
+          parameters: [
+            { $ref: "#/components/parameters/LimitParam" },
+            { $ref: "#/components/parameters/OffsetParam" },
+            { name: "status", in: "query", schema: { type: "string", enum: ["pending", "approved", "rejected", "expired"] } },
+          ],
+          responses: {
+            "200": { description: "Approval list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Approval" } } } } },
+          },
+        },
+      },
+      "/api/approvals/pending": {
+        get: {
+          tags: ["Approvals"],
+          summary: "List pending approvals",
+          responses: {
+            "200": { description: "Pending approvals", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Approval" } } } } },
+          },
+        },
+      },
+      "/api/approvals/{id}": {
+        get: {
+          tags: ["Approvals"],
+          summary: "Get an approval by ID",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Approval", content: { "application/json": { schema: { $ref: "#/components/schemas/Approval" } } } },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/approvals/{id}/approve": {
+        post: {
+          tags: ["Approvals"],
+          summary: "Approve a pending request (developer role required)",
+          description: "Requires developer role. An agent cannot approve their own request.",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Approved", content: { "application/json": { schema: { $ref: "#/components/schemas/Approval" } } } },
+            "403": { description: "Forbidden — self-approval or insufficient role", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "409": { description: "Not in pending state", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/approvals/{id}/reject": {
+        post: {
+          tags: ["Approvals"],
+          summary: "Reject a pending request (developer role required)",
+          description: "Requires developer role. An agent cannot reject their own request.",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Rejected", content: { "application/json": { schema: { $ref: "#/components/schemas/Approval" } } } },
+            "403": { description: "Forbidden — self-rejection or insufficient role", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "409": { description: "Not in pending state", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+
+      // ── Attachments ───────────────────────────────────────────
+      "/api/attachments": {
+        get: {
+          tags: ["Attachments"],
+          summary: "List attachments",
+          parameters: [
+            { name: "recordType", in: "query", schema: { type: "string" } },
+            { name: "recordId", in: "query", schema: { type: "string" } },
+            { $ref: "#/components/parameters/LimitParam" },
+            { $ref: "#/components/parameters/OffsetParam" },
+          ],
+          responses: {
+            "200": { description: "Attachment list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Attachment" } } } } },
+          },
+        },
+        post: {
+          tags: ["Attachments"],
+          summary: "Upload an attachment",
+          requestBody: {
+            required: true,
+            content: { "multipart/form-data": { schema: { type: "object", required: ["file", "recordType", "recordId"], properties: { file: { type: "string", format: "binary" }, recordType: { type: "string" }, recordId: { type: "string" } } } } },
+          },
+          responses: {
+            "201": { description: "Attachment uploaded", content: { "application/json": { schema: { $ref: "#/components/schemas/Attachment" } } } },
+          },
+        },
+      },
+      "/api/attachments/{id}/download": {
+        get: {
+          tags: ["Attachments"],
+          summary: "Download an attachment",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "File content", content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/attachments/{id}": {
+        delete: {
+          tags: ["Attachments"],
+          summary: "Delete an attachment",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: { "200": { description: "Attachment deleted" } },
+        },
+      },
+
+      // ── Notifications ─────────────────────────────────────────
+      "/api/notifications": {
+        get: {
+          tags: ["Notifications"],
+          summary: "List notifications",
+          parameters: [
+            { $ref: "#/components/parameters/LimitParam" },
+            { $ref: "#/components/parameters/OffsetParam" },
+            { name: "read", in: "query", schema: { type: "boolean" } },
+          ],
+          responses: {
+            "200": { description: "Notification list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Notification" } } } } },
+          },
+        },
+      },
+      "/api/notifications/unread-count": {
+        get: {
+          tags: ["Notifications"],
+          summary: "Get unread notification count",
+          responses: {
+            "200": { description: "Count", content: { "application/json": { schema: { type: "object", properties: { count: { type: "integer" } } } } } },
+          },
+        },
+      },
+      "/api/notifications/{id}/read": {
+        post: {
+          tags: ["Notifications"],
+          summary: "Mark a notification as read",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: { "200": { description: "Notification marked read" } },
+        },
+      },
+      "/api/notifications/read-all": {
+        post: {
+          tags: ["Notifications"],
+          summary: "Mark all notifications as read",
+          responses: { "200": { description: "All notifications marked read" } },
+        },
+      },
 
       // ── Events ────────────────────────────────────────────────
       "/api/events": {
         get: {
           tags: ["Events"],
-          summary: "List audit events",
+          summary: "List audit events (auditor role required)",
+          description: "Requires `auditor` or `developer` role.",
           parameters: [
             { $ref: "#/components/parameters/LimitParam" },
             { $ref: "#/components/parameters/OffsetParam" },
+            { name: "recordType", in: "query", schema: { type: "string" } },
+            { name: "recordId", in: "query", schema: { type: "string" } },
           ],
           responses: {
             "200": { description: "Event list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/CrmEvent" } } } } },
+            "403": { description: "Insufficient role", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -650,17 +1097,19 @@ export function getOpenAPISpec() {
         },
         post: {
           tags: ["Agents"],
-          summary: "Create a new agent",
-          requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { name: { type: "string" }, type: { type: "string" }, role: { type: "string" } }, required: ["name"] } } } },
+          summary: "Create a new agent (developer role required)",
+          description: "Requires `developer` role.",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["name"], properties: { name: { type: "string" }, type: { type: "string" }, role: { type: "string" } } } } } },
           responses: {
             "201": { description: "Agent created", content: { "application/json": { schema: { $ref: "#/components/schemas/AgentProvisionResult" } } } },
+            "403": { description: "Insufficient role", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
       "/api/agents/{id}/suspend": {
         post: {
           tags: ["Agents"],
-          summary: "Suspend an agent",
+          summary: "Suspend an agent (developer role required)",
           parameters: [{ $ref: "#/components/parameters/IdParam" }],
           responses: { "200": { description: "Agent suspended", content: { "application/json": { schema: { $ref: "#/components/schemas/Agent" } } } } },
         },
@@ -668,7 +1117,7 @@ export function getOpenAPISpec() {
       "/api/agents/{id}/approve": {
         post: {
           tags: ["Agents"],
-          summary: "Approve / activate an agent",
+          summary: "Approve / activate a pending agent (developer role required)",
           parameters: [{ $ref: "#/components/parameters/IdParam" }],
           responses: { "200": { description: "Agent activated", content: { "application/json": { schema: { $ref: "#/components/schemas/Agent" } } } } },
         },
@@ -676,9 +1125,25 @@ export function getOpenAPISpec() {
       "/api/agents/{id}/reject": {
         post: {
           tags: ["Agents"],
-          summary: "Reject / suspend an agent",
+          summary: "Reject / suspend an agent (developer role required)",
           parameters: [{ $ref: "#/components/parameters/IdParam" }],
           responses: { "200": { description: "Agent rejected", content: { "application/json": { schema: { $ref: "#/components/schemas/Agent" } } } } },
+        },
+      },
+      "/api/agents/{id}/logs": {
+        get: {
+          tags: ["Agents"],
+          summary: "Get audit logs for a specific agent (auditor role required)",
+          description: "Requires `auditor` or `developer` role.",
+          parameters: [
+            { $ref: "#/components/parameters/IdParam" },
+            { $ref: "#/components/parameters/LimitParam" },
+            { $ref: "#/components/parameters/OffsetParam" },
+          ],
+          responses: {
+            "200": { description: "Event list for agent", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/CrmEvent" } } } } },
+            "403": { description: "Insufficient role", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
         },
       },
 
@@ -688,6 +1153,58 @@ export function getOpenAPISpec() {
           tags: ["Stats"],
           summary: "Dashboard statistics",
           responses: { "200": { description: "Aggregated stats", content: { "application/json": { schema: { $ref: "#/components/schemas/Stats" } } } } },
+        },
+      },
+
+      // ── Emails ────────────────────────────────────────────────
+      "/api/emails/send": {
+        post: {
+          tags: ["Emails"],
+          summary: "Send an email via Resend",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["to", "subject"],
+                  properties: {
+                    to: { type: "string", format: "email" },
+                    subject: { type: "string" },
+                    html: { type: "string" },
+                    text: { type: "string" },
+                    contactId: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": { description: "Email sent" },
+            "503": { description: "Email not configured", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/emails/log": {
+        post: {
+          tags: ["Emails"],
+          summary: "Log an inbound or manually-recorded email",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+          responses: { "201": { description: "Email logged" } },
+        },
+      },
+      "/api/emails": {
+        get: {
+          tags: ["Emails"],
+          summary: "List email activities",
+          parameters: [
+            { $ref: "#/components/parameters/LimitParam" },
+            { $ref: "#/components/parameters/OffsetParam" },
+            { name: "contactId", in: "query", schema: { type: "string" } },
+          ],
+          responses: {
+            "200": { description: "Email list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Activity" } } } } },
+          },
         },
       },
 
@@ -717,20 +1234,53 @@ export function getOpenAPISpec() {
           },
         },
       },
+      "/api/webhooks/inbound": {
+        post: {
+          tags: ["Webhooks"],
+          summary: "Receive an inbound webhook event",
+          description: "Fan-out endpoint for inbound events. Rate-limited to 60 requests/min per tenant.",
+          security: [],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+          responses: {
+            "200": { description: "Event accepted" },
+            "429": { description: "Rate limit exceeded", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
 
       // ── Custom Fields ─────────────────────────────────────────
       ...crudPaths("custom-fields", "CustomFieldDefinition", "Custom Fields", {
         listParams: [{ name: "collection", in: "query", schema: { type: "string" } }],
         createSchema: "CustomFieldCreate",
         updateSchema: "CustomFieldUpdate",
+        createDescription: "Requires `developer` role.",
+        updateDescription: "Requires `developer` role.",
       }),
+
+      // ── Semantic search ───────────────────────────────────────
+      "/api/search/semantic": {
+        get: {
+          tags: ["System"],
+          summary: "Semantic vector search across CRM records",
+          description: "Requires `OPENAI_API_KEY` to be configured. Returns records ranked by embedding similarity.",
+          parameters: [
+            { name: "q", in: "query", required: true, schema: { type: "string" } },
+            { name: "collection", in: "query", schema: { type: "string" } },
+            { $ref: "#/components/parameters/LimitParam" },
+          ],
+          responses: {
+            "200": { description: "Search results", content: { "application/json": { schema: { type: "array", items: { type: "object" } } } } },
+            "501": { description: "Vector search not configured", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
 
       // ── MCP ───────────────────────────────────────────────────
       "/api/mcp": {
         post: {
           tags: ["MCP"],
           summary: "MCP Streamable HTTP transport",
-          description: "Model Context Protocol endpoint. Initialises a new MCP session on first POST (returns mcp-session-id header). Subsequent requests with the session header are forwarded to the session transport.",
+          description: "Model Context Protocol endpoint. Send an `initialize` request first to receive an `mcp-session-id` header. Include that header on all subsequent requests.",
           requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
           responses: {
             "200": { description: "MCP response" },
@@ -795,6 +1345,8 @@ function crudPaths(
     listParams?: any[];
     createSchema?: string;
     updateSchema?: string;
+    createDescription?: string;
+    updateDescription?: string;
   } = {},
 ) {
   const createSchema = opts.createSchema ?? `${schemaName}Create`;
@@ -816,6 +1368,7 @@ function crudPaths(
       post: {
         tags: [tag],
         summary: `Create a ${schemaName.toLowerCase()}`,
+        ...(opts.createDescription ? { description: opts.createDescription } : {}),
         requestBody: { required: true, content: { "application/json": { schema: { $ref: `#/components/schemas/${createSchema}` } } } },
         responses: {
           "201": {
@@ -838,6 +1391,7 @@ function crudPaths(
       patch: {
         tags: [tag],
         summary: `Update a ${schemaName.toLowerCase()}`,
+        ...(opts.updateDescription ? { description: opts.updateDescription } : {}),
         parameters: [{ $ref: "#/components/parameters/IdParam" }],
         requestBody: { required: true, content: { "application/json": { schema: { $ref: `#/components/schemas/${updateSchema}` } } } },
         responses: {
