@@ -8,7 +8,6 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![CI](https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/Cam-Smith-One/Headless_CRM/actions)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
 
 ---
 
@@ -26,7 +25,7 @@ So I built this.
 - **Agent identity** — every agent gets its own API key, JWT, and role. Operators do CRM work. Developers define schema. Auditors read the trail. No more shared credentials or repurposed user accounts.
 - **Full event log** — every mutation records who did it, what changed (before/after diff), and when. Agents can subscribe to events via webhooks and build reactive workflows.
 - **Approval workflows** — agents can request approval before taking destructive actions. Another agent (or a human) approves or rejects.
-- **Runs anywhere** — SQLite for local development (no Docker, up in under a minute), Postgres for production, one-click Vercel deploy if you want it off your machine.
+- **Runs anywhere** — SQLite for local development (no Docker, up in under a minute), Postgres + Docker for production.
 
 <details>
 <summary><strong>See it in action: MCP agent creating a contact</strong></summary>
@@ -109,16 +108,7 @@ docker compose up -d    # PostgreSQL + API + Web Dashboard
 
 Visit http://localhost:3000 for the dashboard, http://localhost:3001/api/docs for the API.
 
-### Option 4: Deploy to Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
-
-1. Click the button above
-2. Add a **Neon Postgres** integration from the Vercel Marketplace
-3. Set `JWT_SECRET` and `ADMIN_API_KEY` environment variables
-4. Deploy
-
-### Option 5: npx (scaffolder)
+### Option 4: npx (scaffolder)
 
 ```bash
 npx create-headless-crm
@@ -174,7 +164,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 ### Deployment
 - **Event Sourcing** — every mutation persisted with before/after change tracking
 - **Multi-tenant** — complete data isolation per tenant
-- **Self-hostable** — Docker Compose, single-binary CLI, or Vercel
+- **Self-hostable** — Docker Compose or single-binary CLI
 - **Dual Database** — PostgreSQL (production) or SQLite (local/edge)
 - **Redis Optional** — falls back to in-memory event bus when unavailable
 
@@ -187,7 +177,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 |                     apps/web                         |
 |              Next.js 16 Dashboard                    |
 |           (shadcn/ui, dark/light mode)               |
-|     + API proxy routes (/api/* → Hono on Vercel)     |
+|        + API proxy routes (/api/* → Hono API)         |
 +-----------------------------------------------------+
                           |
 +-----------------------------------------------------+
@@ -226,7 +216,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 headless-crm/
 ├── apps/
 │   ├── api/            Hono REST API + MCP HTTP transport
-│   └── web/            Next.js 16 dashboard + Vercel API proxy
+│   └── web/            Next.js 16 dashboard + API proxy routes
 ├── packages/
 │   ├── db/             Drizzle ORM schemas (PostgreSQL + SQLite)
 │   ├── core/           CRM engine (contacts, companies, deals, cases, pipelines,
@@ -241,7 +231,7 @@ headless-crm/
 ├── docker-compose.yml  PostgreSQL + API + Web (full stack)
 ├── Dockerfile          API Docker image
 ├── Dockerfile.web      Web dashboard Docker image
-├── vercel.json         Vercel deployment config
+├── vercel.json         Vercel config (present but not the primary deploy path)
 ├── turbo.json          Turborepo pipeline config
 └── package.json        Workspace root
 ```
@@ -492,7 +482,7 @@ Invite links expire after 48 hours. Pending invites are listed in the Team page 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `BETTER_AUTH_SECRET` | 32+ char signing secret for sessions | Yes |
-| `BETTER_AUTH_URL` | Canonical URL (e.g. `https://app.example.com`) | Vercel only |
+| `BETTER_AUTH_URL` | Canonical URL (e.g. `https://app.example.com`) | Production |
 | `NEXT_PUBLIC_APP_URL` | Public URL for invite links | Recommended |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Enable Google OAuth | No |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Enable GitHub OAuth | No |
@@ -526,7 +516,7 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 | `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP mode | (none) |
 | `NEXT_PUBLIC_API_URL` | API URL for web dashboard | `http://localhost:3001` |
 | `BETTER_AUTH_SECRET` | 32+ char secret for human session signing | (required for dashboard login) |
-| `BETTER_AUTH_URL` | Canonical deployment URL (required on Vercel) | `http://localhost:3000` |
+| `BETTER_AUTH_URL` | Canonical deployment URL | `http://localhost:3000` |
 | `NEXT_PUBLIC_APP_URL` | Public URL used in invite links | `http://localhost:3000` |
 
 ---
@@ -536,7 +526,7 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 | Layer | Technology |
 |-------|------------|
 | Monorepo | Turborepo + npm workspaces |
-| API framework | Hono (Node.js + Vercel Functions) |
+| API framework | Hono (Node.js) |
 | Database | PostgreSQL 16 + pgvector / SQLite (local) |
 | ORM | Drizzle ORM |
 | Event bus | Redis 7 Streams or in-memory fallback |
@@ -732,7 +722,7 @@ All API errors follow a consistent JSON format:
 
 | Limitation | Details |
 |------------|---------|
-| **File attachment storage** | Attachments are stored as base64-encoded blobs in the database. This works for small files but is not recommended for production workloads with large or frequent uploads. A migration to Vercel Blob or S3-compatible storage is planned. |
+| **File attachment storage** | Attachments are stored as base64-encoded blobs in the database. This works for small files but is not recommended for production workloads with large or frequent uploads. A migration to S3-compatible storage is planned. |
 | **No real-time push** | The dashboard polls the API for updates. WebSocket or Server-Sent Events support is not currently implemented. For real-time integrations, use webhooks. |
 | **Dual-database type abstraction** | PostgreSQL and SQLite Drizzle schemas have different TypeScript types. Service layer code branches on `db.type`. A unified abstract schema type is planned. |
 | **Approval expiration is on-read** | Expired approvals are marked as `expired` automatically when a `list` or `getPending` call is made — not via a background job. Approvals will remain as `pending` in the database until next polled. |
