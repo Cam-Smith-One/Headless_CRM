@@ -144,6 +144,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - common local install and auth/runtime issues
 - [UPGRADING.md](./UPGRADING.md) - safe upgrade checklist for SQLite and Postgres
 - [ROADMAP.md](./ROADMAP.md) - what we are actively improving next
+- [AI_HANDOFF_STATUS.md](./AI_HANDOFF_STATUS.md) - current state, recent work, and next priorities for future AI agents and maintainers
 - [SUPPORT.md](./SUPPORT.md) - where to file bugs, ask for help, and report security issues
 - [RELEASING.md](./RELEASING.md) - maintainer release checklist
 

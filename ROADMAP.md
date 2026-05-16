@@ -4,18 +4,18 @@ This is the working roadmap for making Headless CRM the best open-source CRM for
 
 ## Now
 
-- Finish invite and team-management end-to-end coverage.
-- Add a stronger Postgres operator guide with backup and restore procedures.
 - Improve error states and operator feedback in the dashboard.
 - Expand example integrations for common MCP clients and automation runners.
+- Add richer screenshots, walkthrough assets, and seeded demo data for open-source adopters.
+- Prepare a path off the Next canary line once stable Next includes the `postcss` security fix.
 
 ## Next
 
 - Granular permissions beyond the current core role set.
 - Better import/export workflows for contacts, companies, and deals.
-- External attachment storage for production workloads.
+- Better admin and audit UX for team operators.
+- Stronger production attachment storage guidance and examples.
 - A richer audit and security activity UI for admins and auditors.
-- More realistic demo data and walkthrough assets for the repo.
 
 ## Later
 
