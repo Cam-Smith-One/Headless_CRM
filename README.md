@@ -6,24 +6,27 @@
 
 # Headless CRM
 
-**The open-source CRM built for AI agents. MCP-native, API-first, self-hostable.**
-
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![CI](https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/Cam-Smith-One/Headless_CRM/actions)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
 
-> **Want it fully managed?** Skip the setup — [get the hosted version →](https://humaie.com) _(zero ops, auto-updates, Humaie support)_
-
 ---
 
-## Why Headless CRM?
+I run a lot of AI agents. They handle outreach, follow-ups, deal tracking, and a bunch of the operational work that used to live in spreadsheets and my inbox. At some point I needed them to have a proper CRM — somewhere to store contacts, track deals, log activity.
 
-Traditional CRMs were designed for humans clicking buttons. Headless CRM is designed for **AI agents making API calls**.
+The obvious answer was "just use HubSpot" or "just use Salesforce." I tried that. The problem isn't features — it's that those products are built for humans clicking through a UI. Getting an agent to reliably interact with them means scraping auth tokens, wrapping undocumented APIs, and hoping the session doesn't expire mid-workflow. Every mutation is a black box. There's no audit trail your agent can trust. Role-based access is modelled around human users, not autonomous processes that each need their own identity and permissions.
 
-- **MCP-native** — 28+ tools via the Model Context Protocol. Connect Claude, Cursor, or any MCP client in seconds.
-- **Agent identity** — Every agent gets its own API key, JWT, role, and audit trail. No more repurposing user accounts for bots.
-- **Event-sourced** — Every mutation tracked with before/after diffs. Full audit trail, webhook notifications, approval workflows.
-- **Self-hostable** — Docker, SQLite single-binary, or one-click Vercel deploy. Your data stays yours.
+I didn't want to buy another SaaS subscription for something I could build in a week. I wanted something I could run locally — or self-host for a few dollars a month — that my agents could call directly via MCP with real tool support, real RBAC, and a real event log.
+
+So I built this.
+
+**Headless CRM** is an open-source, MCP-native, API-first CRM designed from the ground up for AI agents.
+
+- **28 MCP tools** — contacts, companies, deals, cases, activities, tags, pipeline triggers, approvals. Connect Claude, Cursor, or any MCP client and start calling tools immediately.
+- **Agent identity** — every agent gets its own API key, JWT, and role. Operators do CRM work. Developers define schema. Auditors read the trail. No more shared credentials or repurposed user accounts.
+- **Full event log** — every mutation records who did it, what changed (before/after diff), and when. Agents can subscribe to events via webhooks and build reactive workflows.
+- **Approval workflows** — agents can request approval before taking destructive actions. Another agent (or a human) approves or rejects.
+- **Runs anywhere** — SQLite for local development (no Docker, up in under a minute), Postgres for production, one-click Vercel deploy if you want it off your machine.
 
 <details>
 <summary><strong>See it in action: MCP agent creating a contact</strong></summary>
