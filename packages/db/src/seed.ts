@@ -78,7 +78,7 @@ async function seed() {
     }).onConflictDoNothing();
   }
 
-  // Pipeline — Sales pipeline for One Zero Ten
+  // Pipeline — default Sales pipeline
   const pipelineId = `pipe_${nanoid(8)}`;
   await db.insert(schema.pipelines).values({
     id: pipelineId,

@@ -1,6 +1,12 @@
 {
   "name": "@headless-crm/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "description": "CLI entry point for Headless CRM — start the full stack with a single command",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cam-Smith-One/Headless_CRM"
+  },
   "private": true,
   "type": "module",
   "bin": {

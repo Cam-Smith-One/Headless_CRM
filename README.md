@@ -425,6 +425,27 @@ Role enforcement happens at three layers:
   any FK reference (contactId, companyId, dealId, agentId) belongs to the
   caller's tenant before mutation.
 
+### Developer agent bootstrap
+
+`developer` agents are provisioned in `pending_approval` status as a safety
+gate — their JWTs return `401` until approved. This creates a chicken-and-egg
+problem for the very first developer agent. To activate it:
+
+```bash
+# 1. Provision the agent (captures the returned JWT)
+curl -X POST http://localhost:3001/api/agents/provision \
+  -H "X-Admin-Key: $ADMIN_API_KEY" \
+  -d '{"tenantId":"your-tenant-id","name":"My Developer","role":"developer"}'
+
+# 2. Activate directly (first time only — no active developer exists yet to approve)
+psql $DATABASE_URL -c "UPDATE agents SET status='active' WHERE name='My Developer';"
+
+# 3. From this point on, approve new developer agents via the API:
+curl -X POST http://localhost:3001/api/agents/<agent-id>/approve \
+  -H "Authorization: Bearer $DEVELOPER_TOKEN" \
+  -d '{"reviewNote":"Approved"}'
+```
+
 ---
 
 ## Team Access & Human Authentication

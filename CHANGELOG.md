@@ -5,6 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.2] — 2026-05-16 — RBAC tightening + deal pipeline fix + OSS housekeeping
+
+Three bugs surfaced during a multi-persona E2E retest (reader / operator /
+developer / auditor roles, cross-agent workflow, MCP transport):
+
+### Fixed
+
+- **Custom-fields RBAC (`apps/api/src/app.ts`)** — `POST /api/custom-fields`
+  and `PATCH /api/custom-fields/:id` used `requireWrite` middleware, allowing
+  `operator`-role agents to define and mutate schema fields. Tightened to
+  `requireManage` (developer-only) to match the intended access model. Operators
+  now correctly receive `403`; developers receive `201`/`200`.
+
+- **Deal creation without `pipelineId` (`packages/core/src/services/deals.ts`)**
+  — `pipeline_id` is `NOT NULL` in the Postgres schema but `CreateDealInput`
+  declared `pipelineId` as optional with no server-side fallback. Any create
+  call that omitted the field (including the web UI's "New Deal" modal when
+  only one pipeline exists) threw an internal 500. Fixed by auto-resolving the
+  tenant's first pipeline when `pipelineId` is omitted — mirrors the implicit
+  "use default pipeline" behaviour the UI expected. Returns a clear error
+  (`"No pipeline found for tenant"`) if no pipeline has been created yet.
+
+### Documentation
+
+- **README** — Added "Developer agent bootstrap" subsection in the RBAC Roles
+  section explaining that `developer` agents start as `pending_approval` and
+  documenting the one-time SQL activation step for the first developer.
+- **CHANGELOG** — Removed personal username that leaked in the v0.1.1 entry.
+
+### Repo hygiene
+
+- `CODE_OF_CONDUCT.md` added (Contributor Covenant v2.1).
+- `.github/PULL_REQUEST_TEMPLATE.md` added.
+- `.gitignore` extended: `.DS_Store`, `*.log`, `*.db`/`*.db-shm`/`*.db-wal`,
+  `coverage/`, `.vscode/settings.json`, `Thumbs.db`.
+- `packages/db/src/seed.ts` — removed internal company name from comment.
+- All internal `package.json` files updated with `version: 0.1.1`,
+  `license: AGPL-3.0`, and package descriptions.
+
+---
+
 ## [0.1.1] — 2026-05-05 — SQLite as a real runtime backend + E2E hardening
 
 The big follow-up to v0.1.0. The previously-documented limitation
@@ -44,7 +85,7 @@ web → CRUD via API) surfaced four real bugs:
 - **`turbo.json`**: turbo's strict env model meant `npm run dev`
   didn't pass `DATABASE_URL` (and similar) through to the spawned web
   subprocess; Better Auth defaulted to Postgres with no URL and
-  attempted to connect to "database `cameronsmith`". Added
+  attempted to connect to the local user's default database. Added
   `globalPassThroughEnv` allowlist.
 - **`packages/auth-web/src/index.ts`**: `provider: "pg"` was hardcoded.
   Even on SQLite, Better Auth generated Postgres SQL → 500 on signup.

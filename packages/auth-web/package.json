@@ -1,6 +1,8 @@
 {
   "name": "@headless-crm/auth-web",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "description": "Human user authentication (Better Auth) for the Headless CRM dashboard",
+  "license": "AGPL-3.0",
   "private": true,
   "type": "module",
   "exports": {
