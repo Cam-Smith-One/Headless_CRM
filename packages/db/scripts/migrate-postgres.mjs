@@ -8,6 +8,8 @@ const repoRoot = resolve(import.meta.dirname, "../../..");
 const drizzleDir = resolve(repoRoot, "packages/db/drizzle");
 const journalPath = join(drizzleDir, "meta/_journal.json");
 const BREAKPOINT = "--> statement-breakpoint";
+const MAX_ATTEMPTS = 10;
+const RETRY_DELAY_MS = 1500;
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -40,7 +42,11 @@ function readStatements(tag) {
   };
 }
 
-try {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runMigrations() {
   await sql`create extension if not exists vector`;
   await sql`create schema if not exists drizzle`;
   await sql`
@@ -74,8 +80,24 @@ try {
       `;
     });
   }
+}
 
-  console.log("Postgres migrations applied.");
+try {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      await runMigrations();
+      console.log("Postgres migrations applied.");
+      break;
+    } catch (error) {
+      const isLastAttempt = attempt === MAX_ATTEMPTS;
+      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+      const retryable = code === "ECONNRESET" || code === "ECONNREFUSED" || code === "57P03";
+      if (!retryable || isLastAttempt) {
+        throw error;
+      }
+      await sleep(RETRY_DELAY_MS);
+    }
+  }
 } finally {
   await sql.end({ timeout: 5 });
 }

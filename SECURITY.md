@@ -62,6 +62,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full list.
 
 - `npm audit --omit=dev` is clean on the maintained branch as of 2026-05-15.
 - The web app is temporarily pinned to `next@16.3.0-canary.19` because the latest stable Next 16 release still pulls a vulnerable nested `postcss` version. Move back to stable once that fix lands in a non-canary release.
+- Better Auth is pinned to `1.6.11` or newer to include the upstream OAuth callback `state` validation fix.
 
 ## Required production env vars
 

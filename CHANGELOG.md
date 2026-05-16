@@ -13,6 +13,7 @@ This pass closes the last pre-release gaps around dependency audit cleanliness a
 
 - Runtime dependency audit is now clean: `npm audit --omit=dev` returns `0 vulnerabilities`.
 - The web workspace is pinned to `next@16.3.0-canary.19` and matching `eslint-config-next` because the latest stable Next 16 release still carries the nested `postcss` advisory path.
+- Better Auth is pinned to `1.6.11` to include the upstream OAuth callback `state` validation fix.
 - Web `dev` and `build` scripts now resolve Next through the workspace via `npm exec --workspace web -- next ...`, which avoids accidentally picking up a parent-folder install.
 - Postgres migrations now run through `packages/db/scripts/migrate-postgres.mjs`, a repo-local migration runner that:
   - ensures the `vector` extension exists,
