@@ -201,10 +201,18 @@ export function getOpenAPISpec() {
             id: { type: "string" },
             tenantId: { type: "string" },
             name: { type: "string" },
-            stages: { type: "array", items: { type: "string" } },
-            isDefault: { type: "boolean" },
+            stages: { type: "array", items: { $ref: "#/components/schemas/PipelineStage" } },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        PipelineStage: {
+          type: "object",
+          required: ["name", "order", "probability"],
+          properties: {
+            name: { type: "string", description: "Display name for the stage" },
+            order: { type: "integer", minimum: 0, description: "Sort order (0-indexed)" },
+            probability: { type: "integer", minimum: 0, maximum: 100, description: "Win probability %" },
           },
         },
         PipelineCreate: {
@@ -212,16 +220,14 @@ export function getOpenAPISpec() {
           required: ["name", "stages"],
           properties: {
             name: { type: "string" },
-            stages: { type: "array", items: { type: "string" } },
-            isDefault: { type: "boolean" },
+            stages: { type: "array", items: { $ref: "#/components/schemas/PipelineStage" }, minItems: 1 },
           },
         },
         PipelineUpdate: {
           type: "object",
           properties: {
             name: { type: "string" },
-            stages: { type: "array", items: { type: "string" } },
-            isDefault: { type: "boolean" },
+            stages: { type: "array", items: { $ref: "#/components/schemas/PipelineStage" }, minItems: 1 },
           },
         },
 
