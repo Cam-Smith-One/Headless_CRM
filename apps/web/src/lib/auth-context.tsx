@@ -21,6 +21,16 @@ interface AuthContextValue {
   isConfigured: boolean;
 }
 
+function isTokenValid(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // Reject if expired (with a 60-second clock-skew buffer)
+    return typeof payload.exp === "number" && payload.exp > Date.now() / 1000 + 60;
+  } catch {
+    return false;
+  }
+}
+
 const AuthContext = createContext<AuthContextValue>({
   token: "",
   adminKey: "",
@@ -49,7 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!session?.user || isPending) return;
 
     const cached = localStorage.getItem("hcrm_token");
-    if (cached) return; // already have a token
+    if (cached && isTokenValid(cached)) return;
+
+    // Cached token is missing, expired, or belongs to a different user — clear it.
+    localStorage.removeItem("hcrm_token");
+    setTokenState("");
 
     fetch("/api/auth/session-token")
       .then((r) => r.json())
