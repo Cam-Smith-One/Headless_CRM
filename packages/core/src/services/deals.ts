@@ -1,5 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
-import { deals, dealContacts, contacts } from "@headless-crm/db";
+import { deals, dealContacts, contacts, pipelines } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
@@ -40,6 +40,19 @@ export function createDealsService(
         const { valid, errors } = await customFieldValidator(ctx, "deals", parsed.customFields);
         if (!valid) throw new Error(`Custom field validation failed: ${errors.join("; ")}`);
       }
+
+      // pipeline_id is NOT NULL in the DB; auto-resolve the tenant's default when omitted.
+      let pipelineId = parsed.pipelineId;
+      if (!pipelineId) {
+        const [defaultPipeline] = await db
+          .select({ id: pipelines.id })
+          .from(pipelines)
+          .where(eq(pipelines.tenantId, ctx.tenantId))
+          .limit(1);
+        if (!defaultPipeline) throw new Error("No pipeline found for tenant. Create a pipeline first.");
+        pipelineId = defaultPipeline.id;
+      }
+
       const id = nanoid();
 
       const [record] = await db
@@ -48,6 +61,7 @@ export function createDealsService(
           id,
           tenantId: ctx.tenantId,
           ...parsed,
+          pipelineId,
           closeDate: parsed.closeDate ? new Date(parsed.closeDate) : undefined,
           createdByAgentId: ctx.agentId,
           updatedByAgentId: ctx.agentId,
