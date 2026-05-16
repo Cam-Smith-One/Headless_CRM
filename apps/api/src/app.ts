@@ -1244,7 +1244,7 @@ export function createApp() {
     }
   });
 
-  api.post("/custom-fields", requireWrite, async (c) => {
+  api.post("/custom-fields", requireManage, async (c) => {
     try {
       const record = await getCRM().customFields.define(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
@@ -1262,7 +1262,7 @@ export function createApp() {
     }
   });
 
-  api.patch("/custom-fields/:id", requireWrite, async (c) => {
+  api.patch("/custom-fields/:id", requireManage, async (c) => {
     try {
       const record = await getCRM().customFields.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
