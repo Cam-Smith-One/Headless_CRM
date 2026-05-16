@@ -1,6 +1,8 @@
 {
   "name": "@headless-crm/db",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "description": "Drizzle ORM schemas, migrations, and seed data for Headless CRM (PostgreSQL + SQLite)",
+  "license": "AGPL-3.0",
   "private": true,
   "type": "module",
   "exports": {

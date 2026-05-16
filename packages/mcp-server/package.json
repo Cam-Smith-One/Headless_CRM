@@ -1,6 +1,12 @@
 {
   "name": "@headless-crm/mcp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "description": "MCP server for Headless CRM — 28 tools via Streamable HTTP and stdio transports",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cam-Smith-One/Headless_CRM"
+  },
   "type": "module",
   "bin": {
     "headless-crm-mcp": "./src/stdio.ts"
