@@ -1,7 +1,7 @@
 <h1 align="center">Headless CRM</h1>
 
 <p align="center">
-  <img src="./docs/banner.png" alt="Headless CRM — the open-source CRM built for AI agents" />
+  <img src="./banner.png" alt="Headless CRM — the open-source CRM built for AI agents" />
 </p>
 
 <p align="center">
