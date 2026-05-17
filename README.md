@@ -1,3 +1,5 @@
+<h1 align="center">Headless CRM</h1>
+
 <p align="center">
   <img src="./banner.png" alt="Headless CRM — the open-source CRM built for AI agents" width="480" /><br><br>
   <a href="https://github.com/Cam-Smith-One/Headless_CRM/stargazers"><img src="https://img.shields.io/github/stars/Cam-Smith-One/Headless_CRM?style=flat&color=yellow" alt="GitHub Stars" /></a>
