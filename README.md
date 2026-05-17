@@ -21,7 +21,7 @@ So I built this.
 
 **Headless CRM** is an open-source, MCP-native, API-first CRM designed from the ground up for AI agents.
 
-- **28 MCP tools** — contacts, companies, deals, cases, activities, tags, pipeline triggers, approvals. Connect Claude, Cursor, or any MCP client and start calling tools immediately.
+- **29 MCP tools** — contacts, companies, deals, cases, activities, tags, pipeline triggers, approvals, bulk ops. Connect Claude, Cursor, or any MCP client and start calling tools immediately.
 - **Agent identity** — every agent gets its own API key, JWT, and role. Operators do CRM work. Developers define schema. Auditors read the trail. No more shared credentials or repurposed user accounts.
 - **Full event log** — every mutation records who did it, what changed (before/after diff), and when. Agents can subscribe to events via webhooks and build reactive workflows.
 - **Approval workflows** — agents can request approval before taking destructive actions. Another agent (or a human) approves or rejects.
@@ -122,14 +122,19 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 
 ### Core CRM
 - **Contacts, Companies, Deals, Cases** — full CRUD with search, filtering, and pagination
+- **Contact Merge** — merge duplicate contacts (`POST /api/contacts/:id/merge`): primary fields win, gaps fill from the other, all FK references (activities, cases, deals, tags) are re-pointed, merged contact is archived
+- **Enrichment** — push enrichment payloads to contacts and companies (`POST /api/:entity/:id/enrich`): standard fields fill gaps, non-standard keys go into `customFields`
+- **Bulk Delete** — delete up to 500 records in one call (`DELETE /api/:collection/bulk`) — developer role required
 - **Pipelines** — multi-pipeline support with customizable stages
 - **Activities** — timeline events (calls, emails, meetings, notes, tasks, agent actions)
+- **Case SLA** — `dueAt` (timestamp) and `slaHours` (integer) on every case for deadline tracking
 - **Tags** — categorization labels for any record
+- **Saved Searches** — store named filter sets per collection for agents to reuse
 - **Custom Fields** — extend any entity with tenant-specific fields (text, number, boolean, date, select, multiselect, url, email) with validation
 - **Entity Relationships** — contacts ↔ companies ↔ deals ↔ cases with full linkage
 
 ### Agent Platform
-- **MCP-native** — 28+ tools for AI agent access via Streamable HTTP or stdio
+- **MCP-native** — 29 tools for AI agent access via Streamable HTTP or stdio
 - **Agent Identity** — unique API keys (`hcrm_sk_...`), JWT-based auth, full lifecycle management
 - **RBAC** — four roles (reader, operator, developer, auditor) enforced at API middleware level
 - **Human Approval Workflows** — agent provisioning and dangerous actions require human approval
@@ -190,7 +195,7 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 | packages |  | packages  |  |packages|  | packages |
 |   /core  |  |   /auth   |  |/events |  |/mcp-server|
 |          |  |           |  |        |  |          |
-| Services |  | JWT+RBAC  |  | Redis  |  | 18+ MCP  |
+| Services |  | JWT+RBAC  |  | Redis  |  | 29 MCP   |
 | Zod CRUD |  | Agent     |  | or     |  | Tools    |
 | Queries  |  | Lifecycle |  | Memory |  | Resources|
 +----------+  +-----------+  +--------+  +----------+
@@ -240,7 +245,7 @@ headless-crm/
 
 ## MCP Integration
 
-AI agents connect via the Model Context Protocol. The server exposes 28+ tools:
+AI agents connect via the Model Context Protocol. The server exposes 29 tools:
 
 | Tool | Description | Write |
 |------|-------------|-------|
@@ -253,6 +258,7 @@ AI agents connect via the Model Context Protocol. The server exposes 28+ tools:
 | `crm_update` | Update specific fields on an existing record | Yes |
 | `crm_delete` | Soft-delete a record | Yes |
 | `crm_bulk_update` | Batch update multiple records | Yes |
+| `crm_bulk_delete` | Soft-delete up to 500 records in one call (developer role) | Yes |
 | `crm_log_activity` | Append an activity to a record's timeline | Yes |
 | `crm_subscribe` | Register a webhook for event notifications | Yes |
 | `crm_unsubscribe` | Remove an event subscription | Yes |
@@ -325,16 +331,24 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | **Contacts** | | |
 | `GET/POST` | `/api/contacts` | List / Create |
 | `GET/PATCH/DELETE` | `/api/contacts/:id` | Get / Update / Delete |
+| `POST` | `/api/contacts/:id/merge` | Merge duplicate contact into this one |
+| `POST` | `/api/contacts/:id/enrich` | Apply enrichment payload (fills gaps, rest → customFields) |
+| `DELETE` | `/api/contacts/bulk` | Bulk delete up to 500 contacts (developer role) |
 | **Companies** | | |
 | `GET/POST` | `/api/companies` | List / Create |
 | `GET/PATCH/DELETE` | `/api/companies/:id` | Get / Update / Delete |
+| `POST` | `/api/companies/:id/enrich` | Apply enrichment payload |
+| `DELETE` | `/api/companies/bulk` | Bulk delete up to 500 companies (developer role) |
 | **Deals** | | |
 | `GET/POST` | `/api/deals` | List / Create (supports `stage`, `pipelineId` filters) |
 | `GET/PATCH/DELETE` | `/api/deals/:id` | Get / Update / Delete |
 | `GET/POST/DELETE` | `/api/deals/:id/contacts` | Deal-contact associations |
+| `GET` | `/api/deals/:id/stage-history` | Full stage-change history from audit trail |
+| `DELETE` | `/api/deals/bulk` | Bulk delete up to 500 deals (developer role) |
 | **Cases** | | |
-| `GET/POST` | `/api/cases` | List / Create (supports `status`, `priority` filters) |
+| `GET/POST` | `/api/cases` | List / Create (supports `status`, `priority` filters; `dueAt`, `slaHours` accepted) |
 | `GET/PATCH/DELETE` | `/api/cases/:id` | Get / Update / Delete |
+| `DELETE` | `/api/cases/bulk` | Bulk delete up to 500 cases (developer role) |
 | **Pipelines** | | |
 | `GET/POST` | `/api/pipelines` | List / Create |
 | `GET/PATCH/DELETE` | `/api/pipelines/:id` | Get / Update / Delete |
@@ -348,8 +362,11 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `POST` | `/api/tags/detach` | Detach tag from record |
 | `GET` | `/api/tags/record/:type/:id` | List tags for a record |
 | **Pipeline Triggers** | | |
-| `GET/POST` | `/api/pipeline-triggers` | List / Create auto-advance rule |
+| `GET/POST` | `/api/pipeline-triggers` | List / Create auto-advance rule (`triggerType`: email_event \| field_change \| time_elapsed) |
 | `GET/PATCH/DELETE` | `/api/pipeline-triggers/:id` | Get / Update / Delete |
+| **Saved Searches** | | |
+| `GET/POST` | `/api/saved-searches` | List / Create saved filter set |
+| `GET/PATCH/DELETE` | `/api/saved-searches/:id` | Get / Update / Delete |
 | **Events** | | |
 | `GET` | `/api/events` | Audit trail (auditor or developer; supports `limit`, `offset`) |
 | `GET` | `/api/agents/:id/logs` | Per-agent action log (auditor or developer) |
@@ -370,6 +387,7 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `GET/PATCH/DELETE` | `/api/custom-fields/:id` | Get / Update / Delete |
 | **Approvals** | | |
 | `GET` | `/api/approvals` | List approvals |
+| `POST` | `/api/approvals` | Create an approval request (operator role) |
 | `POST` | `/api/approvals/:id/approve` | Approve |
 | `POST` | `/api/approvals/:id/reject` | Reject |
 | **Emails** | | |
@@ -625,7 +643,7 @@ npm run test:coverage -w packages/core
 | `tags` / `record_tags` | Categorization labels |
 | `agent_memories` | Agent-specific persistent memory (pgvector) |
 | `events` | Event sourcing audit trail |
-| `cases` | Support/service cases with status and priority |
+| `cases` | Support/service cases with status, priority, and SLA fields (`due_at`, `sla_hours`) |
 | `webhooks` | Registered webhook endpoints with HMAC secrets |
 | `webhook_deliveries` | Delivery attempts and retry tracking |
 | `custom_field_definitions` | Tenant-specific field definitions per collection |
@@ -637,6 +655,7 @@ npm run test:coverage -w packages/core
 | `accounts` | OAuth provider accounts + bcrypt password hashes |
 | `verifications` | Email verification tokens |
 | `invites` | Team invite tokens with expiry and accept status |
+| `saved_searches` | Named filter sets per collection for agents to reuse |
 
 ---
 

@@ -52,7 +52,12 @@ The setup script:
 - Installs npm deps (force-installs `better-sqlite3` if the optional dep was skipped)
 - Writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`
 - Generates and applies SQLite migrations
-- Seeds 5 companies, 5 contacts, 5 deals, 4 cases, 4 agents
+- Seeds 5 companies, 5 contacts, 5 deals, 4 cases, 4 agents into `tenant_demo`
+
+To seed a different tenant, set `SEED_TENANT_ID` before running:
+```bash
+SEED_TENANT_ID=tenant_prod npm run db:seed
+```
 
 How the cross-backend support works:
 - `packages/db/src/index.ts` detects the `file:` URL at module-load time
@@ -92,13 +97,15 @@ packages/
 
 ## How to Add a New Entity
 
-1. **Schema** — Create `packages/db/src/schema/your-entity.ts` with a Drizzle `pgTable`, export from `schema/index.ts`
-2. **Service** — Create `packages/core/src/services/your-entity.ts` with CRUD + query, Zod validation, event emission
-3. **CRM factory** — Wire the service into `packages/core/src/crm.ts`
-4. **API routes** — Add GET/POST/PATCH/DELETE endpoints in `apps/api/src/app.ts`
-5. **MCP tools** — Add the collection to `crm_query`, `crm_get`, `crm_search`, `crm_create`, `crm_update`, `crm_delete` enums in `packages/mcp-server/src/tools/index.ts`
-6. **UI page** — Create `apps/web/src/app/your-entity/page.tsx` and add to the sidebar
-7. **Migration** — Run `npm run db:generate` and `npm run db:migrate`
+1. **Postgres schema** — Create `packages/db/src/schema/your-entity.ts` with a Drizzle `pgTable`, export from `schema/index.ts`
+2. **SQLite schema** — Add the matching `sqliteTable` to `packages/db/src/sqlite-schema.ts` (all column types must be SQLite-compatible: use `text` for timestamps/UUIDs, `integer` for booleans/numbers)
+3. **DB re-export** — Add `export const yourEntity = active.yourEntity;` to `packages/db/src/index.ts`
+4. **Service** — Create `packages/core/src/services/your-entity.ts` with CRUD + query, Zod validation, event emission
+5. **CRM factory** — Wire the service into `packages/core/src/crm.ts`
+6. **API routes** — Add GET/POST/PATCH/DELETE endpoints in `apps/api/src/app.ts`
+7. **MCP tools** — Add the collection to `crm_query`, `crm_get`, `crm_search`, `crm_create`, `crm_update`, `crm_delete` enums in `packages/mcp-server/src/tools/index.ts`
+8. **UI page** — Create `apps/web/src/app/your-entity/page.tsx` and add to the sidebar
+9. **Migration** — Run `npm run db:generate` and `npm run db:migrate`
 
 ## Code Style
 
