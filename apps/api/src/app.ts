@@ -646,7 +646,7 @@ export function createApp() {
     }
   });
 
-  api.post("/pipelines", requireWrite, async (c) => {
+  api.post("/pipelines", requireManage, async (c) => {
     try {
       const record = await getCRM().pipelines.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
@@ -655,7 +655,7 @@ export function createApp() {
     }
   });
 
-  api.patch("/pipelines/:id", requireWrite, async (c) => {
+  api.patch("/pipelines/:id", requireManage, async (c) => {
     try {
       const record = await getCRM().pipelines.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
@@ -1136,7 +1136,7 @@ export function createApp() {
     }
   });
 
-  api.post("/pipeline-triggers", requireWrite, async (c) => {
+  api.post("/pipeline-triggers", requireManage, async (c) => {
     try {
       const record = await getCRM().pipelineTriggers.create(c.get("ctx"), await c.req.json());
       return c.json(record, 201);
@@ -1154,7 +1154,7 @@ export function createApp() {
     }
   });
 
-  api.patch("/pipeline-triggers/:id", requireWrite, async (c) => {
+  api.patch("/pipeline-triggers/:id", requireManage, async (c) => {
     try {
       const record = await getCRM().pipelineTriggers.update(c.get("ctx"), c.req.param("id"), await c.req.json());
       return c.json(record);
