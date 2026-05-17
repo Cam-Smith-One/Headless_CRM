@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch, apiPost, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 

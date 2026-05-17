@@ -101,7 +101,7 @@ function SignupForm() {
         Accept invite
       </h1>
       <p className="mb-5 text-xs text-muted-foreground">
-        You've been invited as a <strong>{invite.role}</strong>. Create your
+        You&apos;ve been invited as a <strong>{invite.role}</strong>. Create your
         account to continue.
       </p>
 
