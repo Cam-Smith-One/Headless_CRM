@@ -384,10 +384,10 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
         "fixed inset-y-0 left-0 z-50 flex h-screen w-56 flex-col border-r border-border bg-sidebar transition-transform duration-200 md:static md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-      <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-md overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-4">
+        <div className="flex h-[84px] w-[84px] items-center justify-center rounded-xl overflow-hidden shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Headless CRM" width={34} height={34} className="rounded-md" />
+          <img src="/logo.png" alt="Headless CRM" width={84} height={84} className="rounded-xl object-cover" />
         </div>
         <div>
           <p className="text-[15px] font-semibold text-sidebar-foreground leading-none">
