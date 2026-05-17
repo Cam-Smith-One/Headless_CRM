@@ -174,7 +174,7 @@ export default function Dashboard() {
                 {unusedWidgets.map((w) => (
                   <DropdownMenuItem
                     key={w.id}
-                    onSelect={() => { addWidget(w.id); if (!editing) setEditing(true); }}
+                    onClick={() => { addWidget(w.id); if (!editing) setEditing(true); }}
                   >
                     {w.title}
                   </DropdownMenuItem>
