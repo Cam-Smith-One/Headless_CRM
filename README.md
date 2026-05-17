@@ -1,56 +1,92 @@
+<h1 align="center">Headless CRM</h1>
+
 <p align="center">
+  <img src="./docs/banner.png" alt="Headless CRM — the open-source CRM built for AI agents" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/Cam-Smith-One/Headless_CRM/stargazers">
+    <img src="https://img.shields.io/github/stars/Cam-Smith-One/Headless_CRM?style=flat&color=yellow" alt="GitHub Stars" />
+  </a>
+  <a href="./LICENSE">
+    <img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3" />
+  </a>
   <img src="https://img.shields.io/badge/MCP-Native-blueviolet?style=for-the-badge" alt="MCP Native" />
   <img src="https://img.shields.io/badge/API-First-blue?style=for-the-badge" alt="API First" />
   <img src="https://img.shields.io/badge/Self--Hostable-green?style=for-the-badge" alt="Self-Hostable" />
+  <a href="https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml">
+    <img src="https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
 </p>
 
-# Headless CRM
+<p align="center">
+  <strong>The open-source CRM built for AI agents. MCP-native, API-first, self-hostable.</strong>
+</p>
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-[![CI](https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/Cam-Smith-One/Headless_CRM/actions)
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#mcp-integration">MCP Tools</a> •
+  <a href="#rest-api">REST API</a> •
+  <a href="#self-hosting">Self-Hosting</a> •
+  <a href="https://github.com/Cam-Smith-One/Headless_CRM/issues">Issues</a>
+</p>
+
+> **Want it fully managed?** Skip the setup — [get the hosted version →](https://humaie.com) _(zero ops, auto-updates)_
 
 ---
 
-I run a lot of AI agents. They handle outreach, follow-ups, deal tracking, and a bunch of the operational work that used to live in spreadsheets and my inbox. At some point I needed them to have a proper CRM — somewhere to store contacts, track deals, log activity.
+# Why Headless?
 
-The obvious answer was "just use HubSpot" or "just use Salesforce." I tried that. The problem isn't features — it's that those products are built for humans clicking through a UI. Getting an agent to reliably interact with them means scraping auth tokens, wrapping undocumented APIs, and hoping the session doesn't expire mid-workflow. Every mutation is a black box. There's no audit trail your agent can trust. Role-based access is modelled around human users, not autonomous processes that each need their own identity and permissions.
+The SaaS CRM you're paying $150/month for was built for humans clicking buttons. Your AI agents don't click buttons.
 
-I didn't want to buy another SaaS subscription for something I could build in a week. I wanted something I could run locally — or self-host for a few dollars a month — that my agents could call directly via MCP with real tool support, real RBAC, and a real event log.
+They make API calls. They need tool schemas, audit trails, role-scoped access, and something that fires a webhook when a deal moves stages. They don't need a kanban board they'll never look at.
 
-So I built this.
+**We're in the early innings of an AI-agent-first world.** If you're building a startup, running a one-person shop, or shipping products with Claude, Codex, OpenClaw, or Hermes — your CRM should be as programmable as your agents. You should be able to hand an agent a JWT and an MCP endpoint and have it managing your entire pipeline by end of day.
 
-**Headless CRM** is an open-source, MCP-native, API-first CRM designed from the ground up for AI agents.
+That's what Headless CRM is. It's not a replacement for Salesforce. It's what you reach for when a Salesforce subscription costs more than your infrastructure.
 
-- **29 MCP tools** — contacts, companies, deals, cases, activities, tags, pipeline triggers, approvals, bulk ops. Connect Claude, Cursor, or any MCP client and start calling tools immediately.
-- **Agent identity** — every agent gets its own API key, JWT, and role. Operators do CRM work. Developers define schema. Auditors read the trail. No more shared credentials or repurposed user accounts.
-- **Full event log** — every mutation records who did it, what changed (before/after diff), and when. Agents can subscribe to events via webhooks and build reactive workflows.
-- **Approval workflows** — agents can request approval before taking destructive actions. Another agent (or a human) approves or rejects.
-- **Runs anywhere** — SQLite for local development (no Docker, up in under a minute), Postgres + Docker for production.
+> _"The companies that win in an agent-first world won't be the ones with the best dashboards. They'll be the ones with the best APIs."_
 
-<details>
-<summary><strong>See it in action: MCP agent creating a contact</strong></summary>
+### What that looks like in practice
 
 ```
-User: Create a contact for Jane Smith at Acme Corp, email jane@acme.com
+# You: "Research and qualify all leads that replied to last week's campaign"
 
-Agent (via MCP): Using crm_create tool...
-  → collection: "contacts"
-  → firstName: "Jane", lastName: "Smith"
-  → email: "jane@acme.com", companyId: "comp_abc123"
+Agent → crm_query contacts where lastActivityType = email.replied, after = 7d ago
+Agent → crm_search companies by domain for each contact
+Agent → crm_update contacts set score = 85, stage = Qualified
+Agent → crm_log_activity "Qualified via reply signal. Company: Series A, 50–200 employees."
+Agent → crm_request_approval "Move 12 contacts to Proposal — estimated value $480k"
 
-Result: Contact created (id: c_xK9mPq2r)
-  → Event emitted: contacts.created
-  → Webhook fired to 2 subscribers
-  → Notification sent to dashboard
+Human → ✓ Approved
 ```
 
-</details>
+No manual data entry. No clicking through 40 records. One prompt, 12 deals advanced.
+
+### Who it's for
+
+- **Startups and solo builders** who want enterprise CRM features without enterprise pricing
+- **Agent developers** building with Claude Code, Codex, OpenClaw, or Hermes who need a CRM their agents can actually talk to
+- **Small teams** who want a self-hosted, private CRM they own completely
+
+### Headless CRM vs the alternatives
+
+|  | Salesforce / HubSpot | Airtable / Notion | DIY Postgres | **Headless CRM** |
+|--|---------------------|-------------------|--------------|-----------------|
+| **MCP tools** | 🚫 None | 🚫 None | 🚫 Build yourself | ✅ 29 built-in |
+| **Agent identity + RBAC** | ⚠️ Repurpose user seats | 🚫 No | 🚫 Build yourself | ✅ JWT, roles, audit trail |
+| **Self-hostable** | 🚫 Cloud only | 🚫 Cloud only | ✅ Yes | ✅ Docker, SQLite, Vercel |
+| **Cost** | 💸 $50–150/seat/month | 💸 $20–45/month | ⚠️ Engineering time | ✅ Free + AGPL |
+| **Webhooks + events** | ✅ Yes | ⚠️ Limited | 🚫 Build yourself | ✅ HMAC-signed, event-sourced |
+| **Approval workflows** | ✅ Expensive add-on | 🚫 No | 🚫 Build yourself | ✅ Built-in |
+| **OpenAPI docs** | ✅ Yes | ⚠️ Partial | 🚫 Build yourself | ✅ Scalar UI at `/api/docs` |
+| **Agent-first design** | 🚫 Human-first | 🚫 Human-first | 🚫 You decide | ✅ Agents are first-class |
 
 ---
 
 ## Quick Start
 
-> **Builder / agent framework user?** Use [Option 2 (SQLite)](#option-2-sqlite-no-docker--full-runtime) — no Docker, no external DB, runs in under a minute. The full API + MCP transport + UI all work against SQLite. Great with Claude, OpenClaw, Hermes, and any MCP client.
+> **Builder / agent developer?** Use [Option 2 (SQLite)](#option-2-sqlite-no-docker--full-runtime) — no Docker, no external DB, under a minute. Perfect with Claude, Codex, OpenClaw, and Hermes.
 
 ### Option 1: One-Command Setup (PostgreSQL)
 
@@ -58,19 +94,12 @@ Result: Contact created (id: c_xK9mPq2r)
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
 cd Headless_CRM
 ./scripts/setup.sh
-```
-
-This installs dependencies, starts PostgreSQL via Docker, runs migrations, seeds demo data, and tells you how to start.
-
-Then:
-
-```bash
 npm run dev    # API on :3001, Dashboard on :3000
 ```
 
 ### Option 2: SQLite (no Docker — full runtime)
 
-**Simplest for local dev and agent integrations.** No external dependencies — just Node.js. The full API server, web UI, and MCP transport all run against SQLite.
+**No external dependencies — just Node.js.** The full API, web UI, and MCP transport all run against SQLite.
 
 ```bash
 git clone https://github.com/Cam-Smith-One/Headless_CRM.git
@@ -79,23 +108,7 @@ cd Headless_CRM
 npm run dev                 # API on :3001, dashboard on :3000
 ```
 
-How it works:
-- Setup script writes `DATABASE_URL=file:<absolute-path>/headless-crm.db` to `.env`.
-- `packages/db/src/index.ts` detects the `file:` URL at module-load and
-  re-exports the SQLite-compatible schema; `getDb()` uses `better-sqlite3`.
-- A driver-level patch converts `Date` params to ISO strings before binding
-  (better-sqlite3 only accepts primitives + Buffer + null).
-- Everything else (REST, MCP tools, agent auth, webhooks, custom fields,
-  tags, pipeline triggers) works identically across both backends.
-
-Postgres-only features in SQLite mode:
-- **Vector search** (`/api/search/semantic`) — depends on pgvector. Falls
-  back to keyword search.
-- **Resend email-engagement triggers** — the metadata-JSON SQL filter uses
-  the Postgres JSONB `->>` operator. The webhook itself works; the
-  cross-tenant lookup query is Postgres-specific.
-
-Both are documented limitations; everything else is feature-equivalent.
+Postgres-only features in SQLite mode: vector search (`/api/search/semantic`) and the Resend email-engagement metadata SQL filter. Everything else is feature-equivalent.
 
 ### Option 3: Docker Compose (full stack)
 
@@ -108,13 +121,19 @@ docker compose up -d    # PostgreSQL + API + Web Dashboard
 
 Visit http://localhost:3000 for the dashboard, http://localhost:3001/api/docs for the API.
 
-### Option 4: npx (scaffolder)
+### Option 4: Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM&env=DATABASE_URL,JWT_SECRET,ADMIN_API_KEY&envDescription=Required%20environment%20variables%20for%20Headless%20CRM&envLink=https%3A%2F%2Fgithub.com%2FCam-Smith-One%2FHeadless_CRM%23configuration&project-name=headless-crm&repository-name=headless-crm)
+
+1. Click the button → add a **Neon Postgres** integration from the Vercel Marketplace
+2. Set `JWT_SECRET` and `ADMIN_API_KEY`
+3. Deploy
+
+### Option 5: npx (scaffolder)
 
 ```bash
 npx create-headless-crm
 ```
-
-Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, and get running in under a minute.
 
 ---
 
@@ -122,56 +141,37 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 
 ### Core CRM
 - **Contacts, Companies, Deals, Cases** — full CRUD with search, filtering, and pagination
-- **Contact Merge** — merge duplicate contacts (`POST /api/contacts/:id/merge`): primary fields win, gaps fill from the other, all FK references (activities, cases, deals, tags) are re-pointed, merged contact is archived
-- **Enrichment** — push enrichment payloads to contacts and companies (`POST /api/:entity/:id/enrich`): standard fields fill gaps, non-standard keys go into `customFields`
-- **Bulk Delete** — delete up to 500 records in one call (`DELETE /api/:collection/bulk`) — developer role required
-- **Pipelines** — multi-pipeline support with customizable stages
-- **Activities** — timeline events (calls, emails, meetings, notes, tasks, agent actions)
-- **Case SLA** — `dueAt` (timestamp) and `slaHours` (integer) on every case for deadline tracking
-- **Tags** — categorization labels for any record
-- **Saved Searches** — store named filter sets per collection for agents to reuse
-- **Custom Fields** — extend any entity with tenant-specific fields (text, number, boolean, date, select, multiselect, url, email) with validation
-- **Entity Relationships** — contacts ↔ companies ↔ deals ↔ cases with full linkage
+- **Contact Merge** — `POST /api/contacts/:id/merge`: primary fields win, gaps fill from the other, all FK refs (activities, cases, deals, tags) re-pointed, merged contact archived
+- **Enrichment hooks** — push enrichment payloads to contacts or companies; standard fields fill gaps, non-standard keys go into `customFields`
+- **Bulk Delete** — soft-delete up to 500 records in one call (developer role)
+- **Case SLA** — `dueAt` (timestamp) + `slaHours` (integer) on every case for agent-driven deadline tracking
+- **Pipelines** — multi-pipeline with customizable stages; full stage-change history via audit trail
+- **Activities** — timeline events: calls, emails, meetings, notes, tasks, agent actions
+- **Tags** — categorization labels for any record, queryable by type
+- **Saved Searches** — store named filter sets per collection so agents can reuse queries
+- **Custom Fields** — extend any entity with tenant-specific fields (text, number, boolean, date, select, multiselect, url, email)
 
 ### Agent Platform
-- **MCP-native** — 29 tools for AI agent access via Streamable HTTP or stdio
-- **Agent Identity** — unique API keys (`hcrm_sk_...`), JWT-based auth, full lifecycle management
-- **RBAC** — four roles (reader, operator, developer, auditor) enforced at API middleware level
-- **Human Approval Workflows** — agent provisioning and dangerous actions require human approval
+- **29 MCP tools** — every CRM operation exposed as a typed tool agents can call directly
+- **Agent Identity** — unique API keys (`hcrm_sk_...`), JWT auth, full lifecycle management
+- **RBAC** — four roles: `reader`, `operator`, `developer`, `auditor` — enforced at API, MCP, and service layers
+- **Human Approval Workflows** — agents request approval before dangerous actions; humans approve in the dashboard
 - **Agent Memory** — persistent memory with pgvector embeddings for semantic recall
+- **Pipeline Triggers** — auto-advance deals on email events, field changes, or elapsed time
 
 ### API & Integrations
 - **REST API** — full CRUD for all entities with OpenAPI 3.1 docs (Scalar UI at `/api/docs`)
-- **Webhooks** — outbound HTTP callbacks with HMAC-SHA256 signing, delivery retries
-- **Inbound Webhooks** — receive data from external systems
-- **MCP Tools** — agents pull data on demand via Model Context Protocol
+- **Webhooks** — outbound HMAC-SHA256-signed HTTP callbacks with delivery retries
+- **Inbound Webhooks** — receive data from external systems (rate-limited 60/min per tenant)
 - **Email Integration** — send/log emails via Resend with graceful degradation
 - **Vector Search** — semantic search via OpenAI text-embedding-3-small + pgvector
 
 ### Security
-- **MCP Role Enforcement** — every tool gated by `ctx.role`; readers/auditors can't write, operators can't delete, only developers can modify schema
-- **Tenant Isolation** — every query scoped by `tenantId`; foreign keys (contact, company, deal, agent) validated to belong to caller's tenant before insert
-- **Rate Limiting** — 100 req/min authenticated, 20 req/min unauthenticated
-- **CORS Lockdown** — configurable allowed origins
-- **Timing-safe Admin Key** — prevents timing attacks on admin endpoints
-- **MCP Session TTL** — automatic session cleanup (30min timeout)
-- **Webhook Replay Protection** — timestamp-based HMAC signing, configurable tolerance
-- **Resend Webhook Signing** — `RESEND_WEBHOOK_SECRET` required in production; unsigned requests rejected
-
-### Dashboard
-- **Customizable Dashboard** — drag-and-drop widgets with localStorage persistence
-- **Notification System** — auto-generated notifications for key CRM events
-- **File Attachments** — upload and manage files on any record
-- **Light/Dark Mode** — full theme support
-- **Mobile Responsive** — works on desktop and mobile
-- **Real-time Polling** — dashboard auto-refreshes with live data
-
-### Deployment
-- **Event Sourcing** — every mutation persisted with before/after change tracking
-- **Multi-tenant** — complete data isolation per tenant
-- **Self-hostable** — Docker Compose or single-binary CLI
-- **Dual Database** — PostgreSQL (production) or SQLite (local/edge)
-- **Redis Optional** — falls back to in-memory event bus when unavailable
+- **MCP Role Enforcement** — every tool gated by `ctx.role`; readers can't write, operators can't delete, only developers modify schema
+- **Tenant Isolation** — every query scoped by `tenantId`; FK references validated against caller's tenant before mutation
+- **Error Sanitization** — all 73 catch blocks route through a central sanitizer — no DB column names leak to callers
+- **Rate Limiting** — Redis-backed (in-memory fallback), 100/min authenticated, 20/min unauthenticated
+- **Resend Webhook Signing** — HMAC-signed; unsigned requests rejected in production
 
 ---
 
@@ -180,9 +180,9 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 ```
 +-----------------------------------------------------+
 |                     apps/web                         |
-|              Next.js 16 Dashboard                    |
+|              Next.js Dashboard                       |
 |           (shadcn/ui, dark/light mode)               |
-|        + API proxy routes (/api/* → Hono API)         |
+|     + API proxy routes (/api/* → Hono on Vercel)     |
 +-----------------------------------------------------+
                           |
 +-----------------------------------------------------+
@@ -221,31 +221,27 @@ Interactive setup — choose PostgreSQL or SQLite, set your port and admin key, 
 headless-crm/
 ├── apps/
 │   ├── api/            Hono REST API + MCP HTTP transport
-│   └── web/            Next.js 16 dashboard + API proxy routes
+│   └── web/            Next.js dashboard + Vercel API proxy
 ├── packages/
-│   ├── db/             Drizzle ORM schemas (PostgreSQL + SQLite)
-│   ├── core/           CRM engine (contacts, companies, deals, cases, pipelines,
+│   ├── db/             Drizzle ORM schemas (PostgreSQL + SQLite), migrations, seed
+│   ├── core/           CRM services (contacts, companies, deals, cases, pipelines,
 │   │                   activities, webhooks, custom fields, approvals, emails,
-│   │                   embeddings, notifications, attachments)
+│   │                   embeddings, notifications, attachments, saved searches)
 │   ├── auth/           Agent JWT auth, RBAC, agent lifecycle
 │   ├── auth-web/       Human user auth (Better Auth, cookie sessions, OAuth)
 │   ├── events/         Event bus (Redis Streams or in-memory fallback)
-│   ├── mcp-server/     MCP server with 28+ tools
+│   ├── mcp-server/     MCP server with 29 tools
 │   └── cli/            CLI entry point (npx headless-crm start)
 ├── scripts/            Setup & provisioning scripts
 ├── docker-compose.yml  PostgreSQL + API + Web (full stack)
-├── Dockerfile          API Docker image
-├── Dockerfile.web      Web dashboard Docker image
-├── vercel.json         Vercel config (present but not the primary deploy path)
-├── turbo.json          Turborepo pipeline config
-└── package.json        Workspace root
+└── turbo.json          Turborepo pipeline config
 ```
 
 ---
 
 ## MCP Integration
 
-AI agents connect via the Model Context Protocol. The server exposes 29 tools:
+AI agents connect via the Model Context Protocol. The server exposes **29 tools**:
 
 | Tool | Description | Write |
 |------|-------------|-------|
@@ -306,8 +302,6 @@ Auth:  Bearer <agent-jwt-token>
 
 ### Obtaining an Agent Token
 
-**Via Admin API Key (bootstrap):**
-
 ```bash
 curl -X POST http://localhost:3001/api/agents/provision \
   -H "X-Admin-Key: <your-admin-key>" \
@@ -315,15 +309,15 @@ curl -X POST http://localhost:3001/api/agents/provision \
   -d '{"name": "my-agent", "role": "operator"}'
 ```
 
-**Via Settings UI:** Navigate to Settings in the dashboard to provision agents with auto-generated API keys.
+Or navigate to **Settings** in the dashboard to provision agents with auto-generated API keys.
+
+> **`developer`-role agents require peer approval** — their JWTs are `pending_approval` until an active developer approves. To bootstrap the first developer: `UPDATE agents SET status='active' WHERE id='<agent_id>';` directly in the DB. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full walkthrough.
 
 ---
 
 ## REST API
 
-All routes under `/api` require a Bearer token (except health checks and setup status).
-
-Full interactive API docs available at `/api/docs` (Scalar UI).
+All routes under `/api` require a Bearer token (except health checks). Full interactive docs at `/api/docs` (Scalar UI).
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -331,24 +325,24 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | **Contacts** | | |
 | `GET/POST` | `/api/contacts` | List / Create |
 | `GET/PATCH/DELETE` | `/api/contacts/:id` | Get / Update / Delete |
-| `POST` | `/api/contacts/:id/merge` | Merge duplicate contact into this one |
-| `POST` | `/api/contacts/:id/enrich` | Apply enrichment payload (fills gaps, rest → customFields) |
-| `DELETE` | `/api/contacts/bulk` | Bulk delete up to 500 contacts (developer role) |
+| `POST` | `/api/contacts/:id/merge` | Merge duplicate into this contact |
+| `POST` | `/api/contacts/:id/enrich` | Apply enrichment payload |
+| `DELETE` | `/api/contacts/bulk` | Bulk delete up to 500 (developer) |
 | **Companies** | | |
 | `GET/POST` | `/api/companies` | List / Create |
 | `GET/PATCH/DELETE` | `/api/companies/:id` | Get / Update / Delete |
 | `POST` | `/api/companies/:id/enrich` | Apply enrichment payload |
-| `DELETE` | `/api/companies/bulk` | Bulk delete up to 500 companies (developer role) |
+| `DELETE` | `/api/companies/bulk` | Bulk delete up to 500 (developer) |
 | **Deals** | | |
 | `GET/POST` | `/api/deals` | List / Create (supports `stage`, `pipelineId` filters) |
 | `GET/PATCH/DELETE` | `/api/deals/:id` | Get / Update / Delete |
 | `GET/POST/DELETE` | `/api/deals/:id/contacts` | Deal-contact associations |
 | `GET` | `/api/deals/:id/stage-history` | Full stage-change history from audit trail |
-| `DELETE` | `/api/deals/bulk` | Bulk delete up to 500 deals (developer role) |
+| `DELETE` | `/api/deals/bulk` | Bulk delete up to 500 (developer) |
 | **Cases** | | |
-| `GET/POST` | `/api/cases` | List / Create (supports `status`, `priority` filters; `dueAt`, `slaHours` accepted) |
+| `GET/POST` | `/api/cases` | List / Create (`dueAt`, `slaHours` accepted) |
 | `GET/PATCH/DELETE` | `/api/cases/:id` | Get / Update / Delete |
-| `DELETE` | `/api/cases/bulk` | Bulk delete up to 500 cases (developer role) |
+| `DELETE` | `/api/cases/bulk` | Bulk delete up to 500 (developer) |
 | **Pipelines** | | |
 | `GET/POST` | `/api/pipelines` | List / Create |
 | `GET/PATCH/DELETE` | `/api/pipelines/:id` | Get / Update / Delete |
@@ -362,34 +356,33 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `POST` | `/api/tags/detach` | Detach tag from record |
 | `GET` | `/api/tags/record/:type/:id` | List tags for a record |
 | **Pipeline Triggers** | | |
-| `GET/POST` | `/api/pipeline-triggers` | List / Create auto-advance rule (`triggerType`: email_event \| field_change \| time_elapsed) |
+| `GET/POST` | `/api/pipeline-triggers` | List / Create (`email_event` \| `field_change` \| `time_elapsed`) |
 | `GET/PATCH/DELETE` | `/api/pipeline-triggers/:id` | Get / Update / Delete |
 | **Saved Searches** | | |
 | `GET/POST` | `/api/saved-searches` | List / Create saved filter set |
 | `GET/PATCH/DELETE` | `/api/saved-searches/:id` | Get / Update / Delete |
 | **Events** | | |
-| `GET` | `/api/events` | Audit trail (auditor or developer; supports `limit`, `offset`) |
+| `GET` | `/api/events` | Audit trail (auditor or developer) |
 | `GET` | `/api/agents/:id/logs` | Per-agent action log (auditor or developer) |
 | **Agents** | | |
 | `GET/POST` | `/api/agents` | List / Provision |
 | `POST` | `/api/agents/provision` | Bootstrap provision (Admin Key) |
 | `POST` | `/api/agents/:id/suspend` | Suspend agent |
 | `POST` | `/api/agents/:id/approve` | Approve pending agent |
-| **Webhooks** | | |
-| `GET/POST` | `/api/webhooks` | List / Register |
-| `GET/PATCH/DELETE` | `/api/webhooks/:id` | Get / Update / Delete |
-| `GET` | `/api/webhooks/:id/deliveries` | Delivery history |
-| `POST` | `/api/webhooks/:id/test` | Send test event |
-| `POST` | `/api/webhooks/inbound` | Receive external data (60/min/tenant) |
-| `POST` | `/api/webhooks/resend` | Resend email-engagement webhook (HMAC-signed; `RESEND_WEBHOOK_SECRET` required in prod) |
-| **Custom Fields** | | |
-| `GET/POST` | `/api/custom-fields` | List / Define |
-| `GET/PATCH/DELETE` | `/api/custom-fields/:id` | Get / Update / Delete |
 | **Approvals** | | |
 | `GET` | `/api/approvals` | List approvals |
 | `POST` | `/api/approvals` | Create an approval request (operator role) |
 | `POST` | `/api/approvals/:id/approve` | Approve |
 | `POST` | `/api/approvals/:id/reject` | Reject |
+| **Webhooks** | | |
+| `GET/POST` | `/api/webhooks` | List / Register |
+| `GET/PATCH/DELETE` | `/api/webhooks/:id` | Get / Update / Delete |
+| `POST` | `/api/webhooks/:id/test` | Send test event |
+| `POST` | `/api/webhooks/inbound` | Receive external data (60/min/tenant) |
+| `POST` | `/api/webhooks/resend` | Resend email-engagement webhook (HMAC-signed) |
+| **Custom Fields** | | |
+| `GET/POST` | `/api/custom-fields` | List / Define |
+| `GET/PATCH/DELETE` | `/api/custom-fields/:id` | Get / Update / Delete |
 | **Emails** | | |
 | `POST` | `/api/emails/send` | Send email via Resend |
 | `GET` | `/api/emails/thread/:contactId` | Get email thread |
@@ -398,13 +391,10 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 | `GET/DELETE` | `/api/attachments/:id` | Get / Delete |
 | **Notifications** | | |
 | `GET` | `/api/notifications` | List notifications |
-| `GET` | `/api/notifications/unread-count` | Unread count |
 | `POST` | `/api/notifications/:id/read` | Mark read |
 | `POST` | `/api/notifications/read-all` | Mark all read |
 | **Search** | | |
-| `GET` | `/api/search/semantic` | Vector similarity search |
-| **Stats** | | |
-| `GET` | `/api/stats` | Dashboard counts |
+| `GET` | `/api/search/semantic` | Vector similarity search (Postgres only) |
 | **MCP** | | |
 | `ALL` | `/mcp` | MCP Streamable HTTP transport |
 | `GET` | `/.well-known/mcp.json` | MCP discovery document |
@@ -415,105 +405,28 @@ Full interactive API docs available at `/api/docs` (Scalar UI).
 
 ## RBAC Roles
 
-| Role | Read CRM | Create/Update | Delete | Manage Schema | Read audit trail |
-|------|----------|---------------|--------|---------------|------------------|
-| `reader` | Yes | No | No | No | No |
-| `operator` | Yes | Yes | No | No | No |
-| `developer` | Yes | Yes | Yes | Yes | Yes |
-| `auditor` | Yes | No | No | No | Yes |
+| Role | Read CRM | Create/Update | Delete | Manage Schema | Audit Trail |
+|------|----------|---------------|--------|---------------|-------------|
+| `reader` | ✅ | — | — | — | — |
+| `operator` | ✅ | ✅ | — | — | — |
+| `developer` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `auditor` | ✅ | — | — | — | ✅ |
 
-`auditor` is read-only across CRM data **plus** the audit trail (`GET /api/events`,
-`GET /api/agents/:id/logs`). Reader and operator cannot read the audit trail —
-that gating prevents agents from enumerating each other's actions.
-
-Role enforcement happens at three layers:
-- **API routes** — `requireWrite` / `requireDelete` / `requireManage` /
-  `requireAudit` middleware in `apps/api/src/app.ts`.
-- **MCP tools** — every tool is gated by `ctx.role` in
-  `packages/mcp-server/src/index.ts` against the tool's `annotations.readOnly`
-  / `annotations.destructive` flags before execute.
-- **Service layer** — every service filters by `ctx.tenantId` and validates
-  any FK reference (contactId, companyId, dealId, agentId) belongs to the
-  caller's tenant before mutation.
-
-### Developer agent bootstrap
-
-`developer` agents are provisioned in `pending_approval` status as a safety
-gate — their JWTs return `401` until approved. This creates a chicken-and-egg
-problem for the very first developer agent. To activate it:
-
-```bash
-# 1. Provision the agent (captures the returned JWT)
-curl -X POST http://localhost:3001/api/agents/provision \
-  -H "X-Admin-Key: $ADMIN_API_KEY" \
-  -d '{"tenantId":"your-tenant-id","name":"My Developer","role":"developer"}'
-
-# 2. Activate directly (first time only — no active developer exists yet to approve)
-psql $DATABASE_URL -c "UPDATE agents SET status='active' WHERE name='My Developer';"
-
-# 3. From this point on, approve new developer agents via the API:
-curl -X POST http://localhost:3001/api/agents/<agent-id>/approve \
-  -H "Authorization: Bearer $DEVELOPER_TOKEN" \
-  -d '{"reviewNote":"Approved"}'
-```
+`auditor` can read the audit trail — `reader` and `operator` cannot. Enforcement happens at three layers: API middleware, MCP tool annotations, and service-layer tenant isolation.
 
 ---
 
 ## Team Access & Human Authentication
 
-The dashboard supports multiple human team members via [Better Auth](https://better-auth.com) — self-hostable, Drizzle-native HttpOnly cookie sessions.
-
-### First Run: Setup Wizard
-
-On first visit, you'll be redirected to `/setup` to create the owner account and workspace:
-
-1. Enter your name, email, password, and workspace name
-2. Your account is created with the `owner` role
-3. You're signed in and redirected to the dashboard
-
-If users already exist, `/setup` returns `403`.
-
-### Login
-
-Visit `/login` to sign in with email and password. Optional Google/GitHub OAuth buttons appear when `NEXT_PUBLIC_OAUTH_ENABLED=true`.
-
-### Inviting Team Members
-
-From **Settings → Team**, owners and admins can invite members:
-
-- Click **Invite Member**, enter email and role (`admin` or `member`)
-- **Self-hosted (no SMTP):** copy the invite link from the modal and share it manually — zero external dependencies
-- **With Resend configured:** invite email is sent automatically
-
-Invite links expire after 48 hours. Pending invites are listed in the Team page until accepted or expired.
-
-### Human Roles
-
-| Role | Dashboard access | Can invite |
-|------|-----------------|------------|
-| `owner` | Full — including all settings | Yes |
-| `admin` | Full — including agent provisioning | Yes |
-| `member` | Read-only — cannot manage agents or settings | No |
-
-### Human Auth Environment Variables
+The dashboard supports multiple team members via [Better Auth](https://better-auth.com) — self-hostable, cookie-based sessions. On first visit you're redirected to `/setup` to create the owner account. Invite members from **Settings → Team** (link sharing works without SMTP; Resend sends automatically when configured).
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `BETTER_AUTH_SECRET` | 32+ char signing secret for sessions | Yes |
-| `BETTER_AUTH_URL` | Canonical URL (e.g. `https://app.example.com`) | Production |
-| `NEXT_PUBLIC_APP_URL` | Public URL for invite links | Recommended |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Enable Google OAuth | No |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Enable GitHub OAuth | No |
-| `NEXT_PUBLIC_OAUTH_ENABLED` | Show OAuth buttons on login page | No |
-
-Generate a secure secret:
-```bash
-openssl rand -base64 32
-```
-
-### How It Works
-
-Human sessions (cookie-based) are separate from agent JWTs. On login, the dashboard exchanges the session cookie for a CRM agent token stored in `localStorage` as `hcrm_token`. This bridges the human identity to the existing Hono API with no changes to the API layer.
+| `BETTER_AUTH_SECRET` | 32+ char signing secret | Yes |
+| `BETTER_AUTH_URL` | Canonical URL (Vercel only) | Vercel |
+| `NEXT_PUBLIC_APP_URL` | Used in invite links | Recommended |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | No |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth | No |
 
 ---
 
@@ -521,21 +434,16 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | (SQLite mode if unset) |
-| `DB_PATH` | SQLite file path (when no DATABASE_URL) | `./headless-crm.db` |
-| `REDIS_URL` | Redis connection string (optional) | (in-memory fallback) |
-| `JWT_SECRET` | Secret for signing agent JWTs | `change-me-in-production` |
-| `PORT` | API server port | `3001` |
-| `ADMIN_API_KEY` | Admin key for bootstrap provisioning | (none) |
+| `DATABASE_URL` | PostgreSQL connection string | SQLite mode if unset |
+| `REDIS_URL` | Redis (optional) | in-memory fallback |
+| `JWT_SECRET` | Agent JWT signing | `change-me-in-production` |
+| `PORT` | API port | `3001` |
+| `ADMIN_API_KEY` | Bootstrap provisioning | (none) |
 | `CORS_ORIGINS` | Comma-separated allowed origins | `*` |
-| `RESEND_API_KEY` | Resend API key for emails (optional) | (email disabled) |
-| `EMAIL_FROM` | Sender email address | `crm@headless-crm.dev` |
-| `OPENAI_API_KEY` | OpenAI key for embeddings/vector search (optional) | (vector search disabled) |
-| `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP mode | (none) |
-| `NEXT_PUBLIC_API_URL` | API URL for web dashboard | `http://localhost:3001` |
-| `BETTER_AUTH_SECRET` | 32+ char secret for human session signing | (required for dashboard login) |
-| `BETTER_AUTH_URL` | Canonical deployment URL | `http://localhost:3000` |
-| `NEXT_PUBLIC_APP_URL` | Public URL used in invite links | `http://localhost:3000` |
+| `RESEND_API_KEY` | Email via Resend (optional) | email disabled |
+| `OPENAI_API_KEY` | Embeddings / vector search (optional) | vector search disabled |
+| `HEADLESS_CRM_TOKEN` | Agent JWT for stdio MCP | (none) |
+| `NEXT_PUBLIC_API_URL` | API URL for dashboard | `http://localhost:3001` |
 
 ---
 
@@ -544,14 +452,14 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 | Layer | Technology |
 |-------|------------|
 | Monorepo | Turborepo + npm workspaces |
-| API framework | Hono (Node.js) |
-| Database | PostgreSQL 16 + pgvector / SQLite (local) |
+| API framework | Hono (Node.js + Vercel Functions) |
+| Database | PostgreSQL 16 + pgvector / SQLite |
 | ORM | Drizzle ORM |
 | Event bus | Redis 7 Streams or in-memory fallback |
 | Auth | JWT via jose, RBAC middleware |
 | Validation | Zod |
 | MCP SDK | @modelcontextprotocol/sdk |
-| Web framework | Next.js 16 |
+| Web framework | Next.js App Router |
 | UI components | shadcn/ui + Tailwind CSS 4 |
 | Email | Resend |
 | Embeddings | OpenAI text-embedding-3-small + pgvector |
@@ -561,40 +469,14 @@ Human sessions (cookie-based) are separate from agent JWTs. On login, the dashbo
 
 ## Self-Hosting
 
-### Docker Compose (full stack)
-
 ```bash
-# Set your secrets
 export JWT_SECRET="your-secure-secret"
 export ADMIN_API_KEY="your-admin-key"
-
-# Start everything (PostgreSQL + API + Dashboard)
 docker compose up -d
+# Dashboard: http://localhost:3000  API docs: http://localhost:3001/api/docs
 
-# Visit http://localhost:3000 (dashboard) or http://localhost:3001/api/docs (API)
-```
-
-### Docker Compose with Redis
-
-```bash
+# With Redis:
 docker compose --profile full up -d
-```
-
-### Docker (standalone API)
-
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t headless-crm .
-docker run -p 3001:3001 \
-  -e DATABASE_URL=postgresql://... \
-  -e JWT_SECRET=your-secret \
-  headless-crm
-```
-
-### Single Binary (no Docker)
-
-```bash
-npm start
-# Or: npx tsx packages/cli/src/index.ts --port 3001 --db-path ./my-crm.db
 ```
 
 ---
@@ -604,26 +486,10 @@ npm start
 ```bash
 npm run dev          # Start all apps in watch mode
 npm run build        # Build everything
-npm run lint         # Lint all packages
-npm run test         # Run tests (Vitest, packages/core)
+npm run test         # Run tests (Vitest)
 npm run db:generate  # Generate Drizzle migrations
 npm run db:migrate   # Apply migrations
-npm run db:seed      # Seed demo data
-```
-
-### Running tests
-
-Tests live in `packages/core/src/__tests__/` and use [Vitest](https://vitest.dev/). They mock the database layer and focus on service-layer business logic.
-
-```bash
-# Run all tests once
-npm run test -w packages/core
-
-# Watch mode
-npm run test:watch -w packages/core
-
-# With coverage
-npm run test:coverage -w packages/core
+npm run db:seed      # Seed demo data (set SEED_TENANT_ID to target a specific tenant)
 ```
 
 ---
@@ -643,25 +509,24 @@ npm run test:coverage -w packages/core
 | `tags` / `record_tags` | Categorization labels |
 | `agent_memories` | Agent-specific persistent memory (pgvector) |
 | `events` | Event sourcing audit trail |
-| `cases` | Support/service cases with status, priority, and SLA fields (`due_at`, `sla_hours`) |
+| `cases` | Support/service cases with status, priority, SLA (`due_at`, `sla_hours`) |
 | `webhooks` | Registered webhook endpoints with HMAC secrets |
 | `webhook_deliveries` | Delivery attempts and retry tracking |
 | `custom_field_definitions` | Tenant-specific field definitions per collection |
 | `approvals` | Human approval requests for agent actions |
 | `attachments` | File attachments on any record |
 | `notifications` | System notifications with read/unread state |
-| `users` | Human user accounts (name, email, role, tenantId) |
+| `saved_searches` | Named filter sets per collection for agents to reuse |
+| `pipeline_triggers` | Auto-advance rules (email_event \| field_change \| time_elapsed) |
+| `users` | Human user accounts |
 | `sessions` | Better Auth HttpOnly cookie sessions |
 | `accounts` | OAuth provider accounts + bcrypt password hashes |
 | `verifications` | Email verification tokens |
 | `invites` | Team invite tokens with expiry and accept status |
-| `saved_searches` | Named filter sets per collection for agents to reuse |
 
 ---
 
 ## Webhooks
-
-Register HTTP callbacks for real-time event notifications with HMAC-SHA256 signature verification.
 
 ```bash
 curl -X POST http://localhost:3001/api/webhooks \
@@ -670,70 +535,7 @@ curl -X POST http://localhost:3001/api/webhooks \
   -d '{"url": "https://example.com/webhook", "eventTypes": ["contacts.*", "deals.stage_changed"]}'
 ```
 
-**Signature verification:**
-
-Each webhook delivery includes `X-Webhook-Timestamp` and `X-Webhook-Signature` headers. The signature format is `t=<timestamp>,v1=<hex>` where the HMAC input is `<timestamp>.<body>`.
-
-```javascript
-import { createHmac, timingSafeEqual } from "crypto";
-
-function verifyWebhook(rawBody, signatureHeader, secret, timestamp) {
-  const [, v1] = signatureHeader.match(/v1=([0-9a-f]+)/) ?? [];
-  if (!v1) return false;
-  const expected = createHmac("sha256", secret)
-    .update(`${timestamp}.${rawBody}`)
-    .digest("hex");
-  // Use constant-time comparison to prevent timing attacks
-  return timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
-}
-```
-
-Deliveries retry up to 3 times with exponential backoff. Monitor delivery history at `GET /api/webhooks/:id/deliveries`.
-
-Subscribe to `notifications.created` to receive webhook pushes for in-app notifications.
-
----
-
-## Custom Fields
-
-Extend any entity with tenant-specific fields:
-
-```bash
-curl -X POST http://localhost:3001/api/custom-fields \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"collection": "contacts", "fieldName": "linkedin_url", "fieldType": "url"}'
-```
-
-Supported types: `text`, `number`, `boolean`, `date`, `select`, `multiselect`, `url`, `email`
-
-Custom fields are automatically:
-- Available to agents via the `crm_list_fields` MCP tool
-- Shown in the web dashboard on create/edit forms and detail pages
-- Included in API responses and webhook payloads
-- Schema changes emit events so agents can discover new fields
-
----
-
-## Error Responses
-
-All API errors follow a consistent JSON format:
-
-```json
-{
-  "error": "Human-readable error message"
-}
-```
-
-| HTTP Status | Meaning |
-|-------------|---------|
-| `400` | Bad request — validation failure or missing required fields |
-| `401` | Unauthorized — missing, invalid, or expired token |
-| `403` | Forbidden — valid token but insufficient role for this action |
-| `404` | Not found — record does not exist or belongs to another tenant |
-| `409` | Conflict — duplicate record or constraint violation |
-| `429` | Rate limited — 100 req/min (authenticated) or 20 req/min (unauthenticated). Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After` |
-| `500` | Internal server error |
+Each delivery includes `X-Webhook-Timestamp` and `X-Webhook-Signature` headers. Signature format: `t=<timestamp>,v1=<hex>` where the HMAC input is `<timestamp>.<body>`. Retries up to 3× with exponential backoff.
 
 ---
 
@@ -741,16 +543,38 @@ All API errors follow a consistent JSON format:
 
 | Limitation | Details |
 |------------|---------|
-| **File attachment storage** | Attachments are stored as base64-encoded blobs in the database. This works for small files but is not recommended for production workloads with large or frequent uploads. A migration to S3-compatible storage is planned. |
-| **No real-time push** | The dashboard polls the API for updates. WebSocket or Server-Sent Events support is not currently implemented. For real-time integrations, use webhooks. |
-| **Dual-database type abstraction** | PostgreSQL and SQLite Drizzle schemas have different TypeScript types. Service layer code branches on `db.type`. A unified abstract schema type is planned. |
-| **Approval expiration is on-read** | Expired approvals are marked as `expired` automatically when a `list` or `getPending` call is made — not via a background job. Approvals will remain as `pending` in the database until next polled. |
+| **File attachment storage** | Stored as base64 blobs in the database — not recommended for large/frequent uploads. S3/Vercel Blob migration planned. |
+| **No real-time push** | Dashboard polls the API. For real-time integrations use webhooks. |
+| **Approval expiration is on-read** | Expired approvals are marked when polled, not via background job. |
+| **30-day JWT expiry** | No rotation list — suspending the agent is the mitigation if a JWT leaks. |
 
 ---
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and PR guidelines.
+
+---
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/#Cam-Smith-One/Headless_CRM&type=date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Cam-Smith-One/Headless_CRM&type=date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Cam-Smith-One/Headless_CRM&type=date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Cam-Smith-One/Headless_CRM&type=date" />
+    </picture>
+  </a>
+</p>
+
+---
+
+## Contributors
+
+<a href="https://github.com/Cam-Smith-One/Headless_CRM/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Cam-Smith-One/Headless_CRM" alt="Contributors" />
+</a>
 
 ---
 

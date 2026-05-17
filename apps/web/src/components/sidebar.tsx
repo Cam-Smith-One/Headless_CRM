@@ -385,15 +385,15 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
         open ? "translate-x-0" : "-translate-x-full"
       )}>
       <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-          <span className="text-xs font-bold text-primary-foreground">H</span>
+        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-md bg-primary">
+          <span className="text-sm font-bold text-primary-foreground">H</span>
         </div>
         <div>
-          <p className="text-sm font-semibold text-sidebar-foreground leading-none">
+          <p className="text-[15px] font-semibold text-sidebar-foreground leading-none">
             Headless CRM
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-            v0.1.0
+          <p className="text-[12px] text-muted-foreground mt-0.5 font-mono">
+            v0.1.3
           </p>
         </div>
       </div>
