@@ -1,29 +1,12 @@
-<h1 align="center">Headless CRM</h1>
-
 <p align="center">
-  <img src="./banner.png" alt="Headless CRM — the open-source CRM built for AI agents" />
-</p>
-
-<p align="center">
-  <a href="https://github.com/Cam-Smith-One/Headless_CRM/stargazers">
-    <img src="https://img.shields.io/github/stars/Cam-Smith-One/Headless_CRM?style=flat&color=yellow" alt="GitHub Stars" />
-  </a>
-  <a href="./LICENSE">
-    <img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3" />
-  </a>
-  <img src="https://img.shields.io/badge/MCP-Native-blueviolet?style=for-the-badge" alt="MCP Native" />
-  <img src="https://img.shields.io/badge/API-First-blue?style=for-the-badge" alt="API First" />
-  <img src="https://img.shields.io/badge/Self--Hostable-green?style=for-the-badge" alt="Self-Hostable" />
-  <a href="https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml">
-    <img src="https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  </a>
-</p>
-
-<p align="center">
-  <strong>The open-source CRM built for AI agents. MCP-native, API-first, self-hostable.</strong>
-</p>
-
-<p align="center">
+  <img src="./banner.png" alt="Headless CRM — the open-source CRM built for AI agents" width="480" /><br><br>
+  <a href="https://github.com/Cam-Smith-One/Headless_CRM/stargazers"><img src="https://img.shields.io/github/stars/Cam-Smith-One/Headless_CRM?style=flat&color=yellow" alt="GitHub Stars" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3" /></a>
+  <img src="https://img.shields.io/badge/MCP-Native-blueviolet?style=flat" alt="MCP Native" />
+  <img src="https://img.shields.io/badge/API-First-blue?style=flat" alt="API First" />
+  <img src="https://img.shields.io/badge/Self--Hostable-green?style=flat" alt="Self-Hostable" />
+  <a href="https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml"><img src="https://github.com/Cam-Smith-One/Headless_CRM/actions/workflows/ci.yml/badge.svg" alt="CI" /></a><br>
+  <strong>The open-source CRM built for AI agents. MCP-native, API-first, self-hostable.</strong><br>
   <a href="#quick-start">Quick Start</a> •
   <a href="#mcp-integration">MCP Tools</a> •
   <a href="#rest-api">REST API</a> •
