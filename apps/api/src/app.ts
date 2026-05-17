@@ -444,6 +444,28 @@ export function createApp() {
     }
   });
 
+  api.post("/contacts/:id/merge", requireWrite, async (c) => {
+    try {
+      const body = await parseBody(c, z.object({ otherId: z.string().min(1) }).strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().contacts.merge(c.get("ctx"), c.req.param("id"), body.otherId);
+      return c.json(record);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.post("/contacts/:id/enrich", requireWrite, async (c) => {
+    try {
+      const body = await parseBody(c, z.object({ data: z.record(z.unknown()) }).strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().contacts.enrich(c.get("ctx"), c.req.param("id"), body.data);
+      return c.json(record);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
   // Companies
   api.get("/companies", async (c) => {
     try {
@@ -487,6 +509,17 @@ export function createApp() {
   api.delete("/companies/:id", requireDelete, async (c) => {
     try {
       const record = await getCRM().companies.delete(c.get("ctx"), c.req.param("id"));
+      return c.json(record);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.post("/companies/:id/enrich", requireWrite, async (c) => {
+    try {
+      const body = await parseBody(c, z.object({ data: z.record(z.unknown()) }).strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().companies.enrich(c.get("ctx"), c.req.param("id"), body.data);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -568,6 +601,27 @@ export function createApp() {
     try {
       const result = await getCRM().deals.removeContact(c.get("ctx"), c.req.param("id"), c.req.param("contactId"));
       return c.json(result);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.get("/deals/:id/stage-history", async (c) => {
+    try {
+      const ctx = c.get("ctx");
+      const dealId = c.req.param("id");
+      const rows = await getDb()
+        .select()
+        .from(crmEvents)
+        .where(
+          and(
+            eq(crmEvents.tenantId, ctx.tenantId),
+            eq(crmEvents.recordId, dealId),
+            eq(crmEvents.eventType, "deals.stage_changed")
+          )
+        )
+        .orderBy(desc(crmEvents.createdAt));
+      return c.json(rows);
     } catch (e: any) {
       return errorResponse(c, e);
     }
@@ -762,6 +816,79 @@ export function createApp() {
       }
     });
   }
+
+  // Bulk delete — DELETE /:collection/bulk with body { ids: string[] }
+  for (const collection of ["contacts", "companies", "deals", "cases"] as const) {
+    api.delete(`/${collection}/bulk`, requireDelete, async (c) => {
+      try {
+        const body = await parseBody(c, z.object({ ids: z.array(z.string().min(1)).min(1).max(500) }).strict());
+        if (body instanceof Response) return body;
+        const ctx = c.get("ctx");
+        const service = getCRM()[collection];
+        let deleted = 0;
+        let failed = 0;
+        const errors: { id: string; error: string }[] = [];
+        for (const id of body.ids) {
+          try {
+            await (service as any).delete(ctx, id);
+            deleted++;
+          } catch (err: any) {
+            failed++;
+            errors.push({ id, error: err.message ?? String(err) });
+          }
+        }
+        return c.json({ deleted, failed, errors });
+      } catch (e: any) {
+        return errorResponse(c, e);
+      }
+    });
+  }
+
+  // Saved Searches
+  api.get("/saved-searches", async (c) => {
+    try {
+      const collection = c.req.query("collection") || undefined;
+      return c.json(await getCRM().savedSearches.list(c.get("ctx"), collection));
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.get("/saved-searches/:id", async (c) => {
+    try {
+      const record = await getCRM().savedSearches.getById(c.get("ctx"), c.req.param("id"));
+      return record ? c.json(record) : c.json({ error: "Not found" }, 404);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.post("/saved-searches", requireWrite, async (c) => {
+    try {
+      const record = await getCRM().savedSearches.create(c.get("ctx"), await c.req.json());
+      return c.json(record, 201);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.patch("/saved-searches/:id", requireWrite, async (c) => {
+    try {
+      const record = await getCRM().savedSearches.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      return c.json(record);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
+  api.delete("/saved-searches/:id", requireDelete, async (c) => {
+    try {
+      const result = await getCRM().savedSearches.delete(c.get("ctx"), c.req.param("id"));
+      return c.json(result);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
 
   // Emails
   api.post("/emails/send", requireWrite, async (c) => {
@@ -1319,6 +1446,23 @@ export function createApp() {
   });
 
   // Approvals
+  api.post("/approvals", requireWrite, async (c) => {
+    try {
+      const body = await parseBody(c, z.object({
+        type: z.enum(["agent_provision", "destructive_action", "bulk_operation", "escalation"]),
+        title: z.string().min(1).max(200),
+        description: z.string().max(2000).optional(),
+        metadata: z.record(z.unknown()).optional(),
+        expiresAt: z.string().datetime().optional(),
+      }).strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().approvals.request(c.get("ctx"), body);
+      return c.json(record, 201);
+    } catch (e: any) {
+      return errorResponse(c, e);
+    }
+  });
+
   api.get("/approvals", async (c) => {
     try {
       const ctx = c.get("ctx");
@@ -1799,7 +1943,8 @@ export function createApp() {
       });
 
       const server = createMCPServer({
-        crm: getCRM(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        crm: getCRM() as any,
         events: getEvents(),
         ctx,
         db: getDb(),

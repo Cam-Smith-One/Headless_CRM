@@ -66,3 +66,11 @@ export {
   type CreateTriggerInput,
   type UpdateTriggerInput,
 } from "./services/pipeline-triggers";
+export {
+  createSavedSearchesService,
+  createSavedSearchSchema,
+  updateSavedSearchSchema,
+  type CreateSavedSearchInput,
+  type UpdateSavedSearchInput,
+  type SavedSearchesService,
+} from "./services/saved-searches";

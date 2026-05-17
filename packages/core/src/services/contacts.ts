@@ -1,6 +1,6 @@
 import { eq, and, sql } from "drizzle-orm";
 import { ilikeCompat } from "@headless-crm/db";
-import { contacts, crmEvents } from "@headless-crm/db";
+import { contacts, crmEvents, activities, dealContacts, cases, recordTags } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
@@ -186,6 +186,146 @@ export function createContactsService(
         offset,
         hasMore: offset + data.length < Number(count),
       };
+    },
+
+    /**
+     * Merge another contact into this one. The primary contact's fields win;
+     * the other contact's non-null fields fill in any gaps. All FK references
+     * are re-pointed to the primary, then the other contact is archived.
+     */
+    async merge(ctx: CrmContext, primaryId: string, otherId: string) {
+      if (primaryId === otherId) throw new Error("Cannot merge a contact with itself");
+      const [primary, other] = await Promise.all([
+        this.getById(ctx, primaryId),
+        this.getById(ctx, otherId),
+      ]);
+      if (!primary) throw new Error(`Contact ${primaryId} not found`);
+      if (!other) throw new Error(`Contact ${otherId} not found`);
+
+      // Fill missing fields from other into primary
+      const mergedFields: Record<string, unknown> = {};
+      for (const field of ["firstName", "lastName", "email", "phone", "title", "companyId"] as const) {
+        if (!primary[field] && other[field]) mergedFields[field] = other[field];
+      }
+      // Merge customFields — other's fields fill gaps in primary's
+      const primaryCF = (primary.customFields as Record<string, unknown>) ?? {};
+      const otherCF = (other.customFields as Record<string, unknown>) ?? {};
+      const mergedCF = { ...otherCF, ...primaryCF };
+      if (JSON.stringify(mergedCF) !== JSON.stringify(primaryCF)) {
+        mergedFields.customFields = mergedCF;
+      }
+
+      // Update primary if there are fields to merge
+      if (Object.keys(mergedFields).length > 0) {
+        await db
+          .update(contacts)
+          .set({ ...mergedFields, updatedByAgentId: ctx.agentId, updatedAt: new Date() })
+          .where(and(eq(contacts.id, primaryId), eq(contacts.tenantId, ctx.tenantId)));
+      }
+
+      // Re-point FK references from other → primary
+      await db.update(activities)
+        .set({ contactId: primaryId })
+        .where(and(eq(activities.contactId, otherId), eq(activities.tenantId, ctx.tenantId)));
+
+      await db.update(cases as any)
+        .set({ contactId: primaryId })
+        .where(and(eq((cases as any).contactId, otherId), eq((cases as any).tenantId, ctx.tenantId)));
+
+      // dealContacts has a composite PK (dealId, contactId) — avoid duplicate key errors
+      // by fetching existing deal associations for the primary and only inserting new ones
+      const existingDealLinks = await db
+        .select({ dealId: dealContacts.dealId })
+        .from(dealContacts)
+        .where(eq(dealContacts.contactId, primaryId));
+      const existingDealIds = new Set(existingDealLinks.map((r: any) => r.dealId));
+
+      const otherDealLinks = await db
+        .select({ dealId: dealContacts.dealId })
+        .from(dealContacts)
+        .where(eq(dealContacts.contactId, otherId));
+
+      // Delete the other contact's deal links (we'll re-insert the new ones)
+      if (otherDealLinks.length > 0) {
+        await db.delete(dealContacts).where(eq(dealContacts.contactId, otherId));
+        const newLinks = otherDealLinks
+          .filter((r: any) => !existingDealIds.has(r.dealId))
+          .map((r: any) => ({ dealId: r.dealId, contactId: primaryId }));
+        if (newLinks.length > 0) {
+          await db.insert(dealContacts).values(newLinks).onConflictDoNothing();
+        }
+      }
+
+      // Re-point record_tags
+      await db.update(recordTags)
+        .set({ recordId: primaryId })
+        .where(and(eq(recordTags.recordId, otherId), eq(recordTags.recordType, "contacts")));
+
+      // Archive the merged-away contact
+      await db
+        .update(contacts)
+        .set({ stateCode: "archived", updatedAt: new Date() })
+        .where(and(eq(contacts.id, otherId), eq(contacts.tenantId, ctx.tenantId)));
+
+      await events.emit({
+        tenantId: ctx.tenantId,
+        eventType: "contacts.merged",
+        recordType: "contacts",
+        recordId: primaryId,
+        agentId: ctx.agentId,
+        userId: ctx.userId,
+        changes: { mergedFrom: { before: null, after: otherId } },
+        metadata: { mergedContactId: otherId },
+      });
+
+      return await this.getById(ctx, primaryId);
+    },
+
+    /**
+     * Apply enrichment data to a contact. Standard fields (when provided) fill
+     * in missing values; everything else goes into customFields.
+     */
+    async enrich(ctx: CrmContext, id: string, data: Record<string, unknown>) {
+      const existing = await this.getById(ctx, id);
+      if (!existing) throw new Error(`Contact ${id} not found`);
+
+      const standardFields = ["firstName", "lastName", "email", "phone", "title", "companyId"] as const;
+      const updates: Record<string, unknown> = {};
+
+      for (const field of standardFields) {
+        if (data[field] !== undefined && !existing[field]) {
+          updates[field] = data[field];
+        }
+        delete data[field];
+      }
+
+      // Remaining keys go into customFields
+      if (Object.keys(data).length > 0) {
+        const existingCF = (existing.customFields as Record<string, unknown>) ?? {};
+        updates.customFields = { ...data, ...existingCF };
+      }
+
+      if (Object.keys(updates).length === 0) return existing;
+
+      const [record] = await db
+        .update(contacts)
+        .set({ ...updates, updatedByAgentId: ctx.agentId, updatedAt: new Date() })
+        .where(and(eq(contacts.id, id), eq(contacts.tenantId, ctx.tenantId)))
+        .returning();
+
+      await events.emit({
+        tenantId: ctx.tenantId,
+        eventType: "contacts.enriched",
+        recordType: "contacts",
+        recordId: id,
+        agentId: ctx.agentId,
+        userId: ctx.userId,
+        changes: Object.fromEntries(
+          Object.entries(updates).map(([k, v]) => [k, { before: (existing as any)[k], after: v }])
+        ),
+      });
+
+      return record;
     },
   };
 }

@@ -12,6 +12,7 @@ import { createPipelinesService } from "./services/pipelines";
 import { createPipelineTriggersService } from "./services/pipeline-triggers";
 import { createNotificationsService } from "./services/notifications";
 import { createTagsService } from "./services/tags";
+import { createSavedSearchesService } from "./services/saved-searches";
 import type { EventEmitter } from "./types";
 import { crmEvents } from "@headless-crm/db";
 
@@ -153,6 +154,7 @@ export function createCRM(db: any, events: EventEmitter) {
     pipelineTriggers: createPipelineTriggersService(db, persistingEvents),
     notifications: notificationsServiceInstance,
     tags: createTagsService(db, persistingEvents),
+    savedSearches: createSavedSearchesService(db, persistingEvents),
   };
 }
 

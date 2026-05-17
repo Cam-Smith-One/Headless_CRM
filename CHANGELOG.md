@@ -5,6 +5,64 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.3] — 2026-05-17 — Feature expansion: SLA, merge, enrichment, saved searches
+
+Nine improvements driven by multi-persona E2E testing and agent workflow gaps.
+
+### Added
+
+- **Case SLA fields** — `dueAt` (timestamp) and `slaHours` (integer) added to
+  `cases` schema, service, and REST API. Enables agents to set and query
+  deadlines without custom fields.
+
+- **Deal stage history** — `GET /api/deals/:id/stage-history` returns all
+  `deals.stage_changed` events from the audit trail, letting agents reconstruct
+  the full pipeline journey for a deal.
+
+- **Contact merge** — `POST /api/contacts/:id/merge { otherId }` merges two
+  contacts: primary fields win, gaps are filled from the other, all FK
+  references (activities, cases, deals, tags) are re-pointed, and the merged
+  contact is archived. Emits `contacts.merged` event.
+
+- **Enrichment hooks** — `POST /api/contacts/:id/enrich { data: {...} }` and
+  `POST /api/companies/:id/enrich { data: {...} }` apply enrichment payloads.
+  Standard fields fill in missing values; non-standard keys go into
+  `customFields`. Emits `contacts.enriched` / `companies.enriched` events.
+
+- **Approval request endpoint** — `POST /api/approvals` (previously missing;
+  the `GET`, `approve`, and `reject` endpoints existed but agents couldn't
+  create requests via REST). Requires `operator` role.
+
+- **Bulk delete** — `DELETE /api/:collection/bulk { ids: string[] }` for
+  contacts, companies, deals, and cases. Also available as MCP tool
+  `crm_bulk_delete`. Max 500 IDs per call. Requires `developer` role.
+
+- **Saved searches** — New `saved_searches` table + service + REST CRUD
+  (`GET/POST /api/saved-searches`, `GET/PATCH/DELETE /api/saved-searches/:id`).
+  Each search stores a name, collection, and arbitrary filter object.
+
+- **Extended pipeline triggers** — `pipeline_triggers` schema extended with
+  `triggerType` (email_event | field_change | time_elapsed), `conditionField`,
+  `conditionOperator`, `conditionValue`, and `checkIntervalMinutes`. Existing
+  email-event triggers automatically have `triggerType = 'email_event'`.
+  The service and REST API now accept all three trigger types.
+
+### Database
+
+- Migration `0004_features_v013.sql`: adds `due_at` + `sla_hours` to `cases`,
+  extends `pipeline_triggers` with 5 new columns (trigger_type, condition_*,
+  check_interval_minutes), and creates the `saved_searches` table.
+- SQLite schema updated to mirror all changes.
+
+### Seed
+
+- `packages/db/src/seed.ts` now reads `SEED_TENANT_ID` env var (default:
+  `tenant_demo`). Set `SEED_TENANT_ID=tenant_prod` to seed the production
+  tenant — fixes the "No pipeline found for tenant" error seen when provisioning
+  agents into a fresh install without running the seed.
+
+---
+
 ## [0.1.2] — 2026-05-16 — RBAC tightening + deal pipeline fix + OSS housekeeping
 
 Three bugs surfaced during a multi-persona E2E retest (reader / operator /
