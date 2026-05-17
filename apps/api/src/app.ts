@@ -1103,7 +1103,7 @@ export function createApp() {
       getDb().select({ companiesThisWeek: count() }).from(companies).where(and(eq(companies.tenantId, tenantId), eq(companies.stateCode, "active"), gte(companies.createdAt, sevenDaysAgo))),
       getDb().select({ dealsTotal: count() }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
       getDb().select({ dealsActive: count() }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
-      getDb().select({ pipelineValue: sql<string>`coalesce(sum(${deals.value}::numeric), 0)` }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
+      getDb().select({ pipelineValue: sql<string>`coalesce(sum(cast(${deals.value} as numeric)), 0)` }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
       getDb().select({ casesTotal: count() }).from(cases).where(eq(cases.tenantId, tenantId)),
       getDb().select({ casesOpen: count() }).from(cases).where(and(eq(cases.tenantId, tenantId), eq(cases.status, "open"))),
       getDb().select({ agentsTotal: count() }).from(agents).where(eq(agents.tenantId, tenantId)),
