@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { pipelines } from "@headless-crm/db";
+import { pipelines, deals, pipelineTriggers, dealContacts } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter } from "../types";
@@ -105,9 +105,25 @@ export function createPipelinesService(db: any, events: EventEmitter) {
       const existing = await this.getById(ctx, id);
       if (!existing) throw new Error(`Pipeline ${id} not found`);
 
-      // Soft delete by removing the record — or we can add a stateCode.
-      // Since the schema doesn't have stateCode, we'll do a real delete
-      // but emit an event for auditing.
+      // Hard-delete archived (soft-deleted) deals that still reference this
+      // pipeline — pipelineId is NOT NULL so we can't null it out. Archived
+      // deals are already invisible to users; removing their rows is safe.
+      const archivedDeals = await db
+        .select({ id: deals.id })
+        .from(deals)
+        .where(and(eq(deals.pipelineId, id), eq(deals.tenantId, ctx.tenantId)));
+
+      for (const d of archivedDeals) {
+        // Remove join rows first to satisfy deal_contacts FK.
+        await db.delete(dealContacts).where(eq(dealContacts.dealId, d.id));
+        await db.delete(deals).where(eq(deals.id, d.id));
+      }
+
+      // Delete any pipeline triggers attached to this pipeline.
+      await db
+        .delete(pipelineTriggers)
+        .where(and(eq(pipelineTriggers.pipelineId, id), eq(pipelineTriggers.tenantId, ctx.tenantId)));
+
       const [record] = await db
         .delete(pipelines)
         .where(and(eq(pipelines.id, id), eq(pipelines.tenantId, ctx.tenantId)))

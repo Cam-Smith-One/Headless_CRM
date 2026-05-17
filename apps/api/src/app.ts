@@ -387,12 +387,60 @@ export function createApp() {
       ownerUserId: parsed.ownerUserId,
       metadata: parsed.metadata,
     });
+    // Admin-provisioned agents are always active regardless of role.
+    // (Developer agents otherwise start as pending_approval for self-service flows.)
+    if (result.agent.status !== "active") {
+      await getAuth().activateAgent(parsed.tenantId, result.agent.id);
+      result.agent.status = "active";
+    }
     return c.json(result, 201);
   });
 
   // Protected API routes
   const api = new Hono<{ Variables: { ctx: CrmContext } }>();
   api.use("*", authenticate);
+
+  // ---------------------------------------------------------------------------
+  // Export endpoints — registered FIRST so static paths are not shadowed by /:id
+  // ---------------------------------------------------------------------------
+  function recordToCsvRow(record: Record<string, unknown>, headers: string[]): string {
+    return headers.map((h) => {
+      const val = record[h];
+      if (val == null) return "";
+      const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }).join(",");
+  }
+
+  function toCsv(records: Record<string, unknown>[]): string {
+    if (records.length === 0) return "";
+    const exclude = new Set(["embedding", "searchVector", "search_vector"]);
+    const headers = Object.keys(records[0]).filter((k) => !exclude.has(k));
+    const rows = [headers.join(","), ...records.map((r) => recordToCsvRow(r, headers))];
+    return rows.join("\n");
+  }
+
+  for (const collection of ["contacts", "companies", "deals", "cases"] as const) {
+    api.get(`/${collection}/export`, async (c) => {
+      try {
+        const ctx = c.get("ctx");
+        const format = c.req.query("format") || "csv";
+        const service = getCRM()[collection];
+        const result = await (service as any).query(ctx, { limit: 10000 });
+        const data = Array.isArray(result) ? result : result?.data ?? [];
+        if (format === "json") return c.json(data);
+        const csv = toCsv(data);
+        c.header("Content-Type", "text/csv");
+        c.header("Content-Disposition", `attachment; filename="${collection}-export.csv"`);
+        return c.body(csv || "");
+      } catch (e: any) {
+        return errorResponse(c, e);
+      }
+    });
+  }
 
   // Contacts
   api.get("/contacts", async (c) => {
@@ -724,52 +772,6 @@ export function createApp() {
       return errorResponse(c, e);
     }
   });
-
-  // ---------------------------------------------------------------------------
-  // Export endpoints
-  // ---------------------------------------------------------------------------
-  function recordToCsvRow(record: Record<string, unknown>, headers: string[]): string {
-    return headers.map((h) => {
-      const val = record[h];
-      if (val == null) return "";
-      const str = typeof val === "object" ? JSON.stringify(val) : String(val);
-      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    }).join(",");
-  }
-
-  function toCsv(records: Record<string, unknown>[]): string {
-    if (records.length === 0) return "";
-    const exclude = new Set(["embedding", "searchVector", "search_vector"]);
-    const headers = Object.keys(records[0]).filter((k) => !exclude.has(k));
-    const rows = [headers.join(","), ...records.map((r) => recordToCsvRow(r, headers))];
-    return rows.join("\n");
-  }
-
-  for (const collection of ["contacts", "companies", "deals", "cases"] as const) {
-    api.get(`/${collection}/export`, async (c) => {
-      try {
-        const ctx = c.get("ctx");
-        const format = c.req.query("format") || "csv";
-        const service = getCRM()[collection];
-        const result = await (service as any).query(ctx, { limit: 10000 });
-        const data = Array.isArray(result) ? result : result?.data ?? [];
-
-        if (format === "json") {
-          return c.json(data);
-        }
-
-        const csv = toCsv(data);
-        c.header("Content-Type", "text/csv");
-        c.header("Content-Disposition", `attachment; filename="${collection}-export.csv"`);
-        return c.body(csv);
-      } catch (e: any) {
-        return errorResponse(c, e);
-      }
-    });
-  }
 
   // ---------------------------------------------------------------------------
   // Import endpoints
