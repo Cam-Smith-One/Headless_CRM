@@ -69,19 +69,6 @@ No manual data entry. No clicking through 40 records. One prompt, 12 deals advan
 - **Agent developers** building with Claude Code, Codex, OpenClaw, or Hermes who need a CRM their agents can actually talk to
 - **Small teams** who want a self-hosted, private CRM they own completely
 
-### Headless CRM vs the alternatives
-
-|  | Salesforce / HubSpot | Airtable / Notion | DIY Postgres | **Headless CRM** |
-|--|---------------------|-------------------|--------------|-----------------|
-| **MCP tools** | 🚫 None | 🚫 None | 🚫 Build yourself | ✅ 29 built-in |
-| **Agent identity + RBAC** | ⚠️ Repurpose user seats | 🚫 No | 🚫 Build yourself | ✅ JWT, roles, audit trail |
-| **Self-hostable** | 🚫 Cloud only | 🚫 Cloud only | ✅ Yes | ✅ Docker, SQLite, Vercel |
-| **Cost** | 💸 $50–150/seat/month | 💸 $20–45/month | ⚠️ Engineering time | ✅ Free + AGPL |
-| **Webhooks + events** | ✅ Yes | ⚠️ Limited | 🚫 Build yourself | ✅ HMAC-signed, event-sourced |
-| **Approval workflows** | ✅ Expensive add-on | 🚫 No | 🚫 Build yourself | ✅ Built-in |
-| **OpenAPI docs** | ✅ Yes | ⚠️ Partial | 🚫 Build yourself | ✅ Scalar UI at `/api/docs` |
-| **Agent-first design** | 🚫 Human-first | 🚫 Human-first | 🚫 You decide | ✅ Agents are first-class |
-
 ---
 
 ## Quick Start
