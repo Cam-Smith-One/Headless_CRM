@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 
+// Auth pages get no shell — just render children centred in the viewport.
+const AUTH_PATHS = ["/login", "/setup", "/signup"];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  if (AUTH_PATHS.some((p) => pathname.startsWith(p))) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -20,9 +29,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary">
-            <span className="text-[10px] font-bold text-primary-foreground">H</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="Headless CRM" width={24} height={24} className="rounded-md" />
           <span className="text-sm font-semibold">Headless CRM</span>
         </div>
         <main className="flex-1 overflow-y-auto">{children}</main>

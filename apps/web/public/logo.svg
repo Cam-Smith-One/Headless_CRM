@@ -1,0 +1,12 @@
+<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#09090b"/>
+  <!-- H strokes -->
+  <path d="M9 8v16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M23 8v16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M9 16h14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- API node dots at corners -->
+  <circle cx="9" cy="8" r="2" fill="#6366f1"/>
+  <circle cx="23" cy="8" r="2" fill="#6366f1"/>
+  <circle cx="9" cy="24" r="2" fill="#6366f1"/>
+  <circle cx="23" cy="24" r="2" fill="#6366f1"/>
+</svg>

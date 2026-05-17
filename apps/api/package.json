@@ -7,7 +7,7 @@
     ".": "./src/app.ts"
   },
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "node --env-file-if-exists=../../.env ../../node_modules/.bin/tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
