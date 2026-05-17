@@ -10,7 +10,7 @@ export function getOpenAPISpec() {
     openapi: "3.1.0",
     info: {
       title: "Headless CRM API",
-      version: "0.1.3",
+      version: "0.1.4",
       description:
         "Agent-first headless CRM with MCP-native interface for AI agents. Provides full CRUD for contacts, companies, deals, cases, pipelines, activities, tags, pipeline triggers, approvals, attachments, notifications, webhooks, custom fields, emails, events, agents, and saved searches.",
       license: { name: "AGPL-3.0", url: "https://www.gnu.org/licenses/agpl-3.0.html" },
@@ -250,17 +250,48 @@ export function getOpenAPISpec() {
           },
         },
         PipelineTriggerCreate: {
-          type: "object",
-          required: ["pipelineId", "fromStage", "toStage", "triggerType"],
-          properties: {
-            pipelineId: { type: "string" },
-            fromStage: { type: "string" },
-            toStage: { type: "string" },
-            triggerType: { type: "string" },
-            conditionField: { type: "string" },
-            conditionOperator: { type: "string" },
-            conditionValue: { type: "string" },
-          },
+          oneOf: [
+            {
+              type: "object",
+              title: "EmailEventTrigger",
+              required: ["pipelineId", "fromStage", "toStage", "triggerType"],
+              properties: {
+                pipelineId: { type: "string" },
+                fromStage: { type: "string" },
+                toStage: { type: "string" },
+                triggerType: { type: "string", enum: ["email_event"] },
+                conditionField: { type: "string" },
+                conditionValue: { type: "string" },
+              },
+            },
+            {
+              type: "object",
+              title: "FieldChangeTrigger",
+              required: ["pipelineId", "fromStage", "toStage", "triggerType", "conditionField", "conditionOperator", "conditionValue"],
+              properties: {
+                pipelineId: { type: "string" },
+                fromStage: { type: "string" },
+                toStage: { type: "string" },
+                triggerType: { type: "string", enum: ["field_change"] },
+                conditionField: { type: "string" },
+                conditionOperator: { type: "string", enum: ["equals", "not_equals", "contains", "greater_than", "less_than"] },
+                conditionValue: { type: "string" },
+              },
+            },
+            {
+              type: "object",
+              title: "TimeElapsedTrigger",
+              required: ["pipelineId", "fromStage", "toStage", "triggerType", "checkIntervalMinutes"],
+              properties: {
+                pipelineId: { type: "string" },
+                fromStage: { type: "string" },
+                toStage: { type: "string" },
+                triggerType: { type: "string", enum: ["time_elapsed"] },
+                checkIntervalMinutes: { type: "integer", minimum: 1 },
+              },
+            },
+          ],
+          discriminator: { propertyName: "triggerType" },
         },
         PipelineTriggerUpdate: {
           type: "object",

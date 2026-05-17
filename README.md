@@ -32,6 +32,10 @@ That's what Headless CRM is. It's not a replacement for Salesforce. It's what yo
 
 > _"The companies that win in an agent-first world won't be the ones with the best dashboards. They'll be the ones with the best APIs."_
 
+<p align="center">
+  <img src="./apps/web/public/dashboard-preview.jpg" alt="Headless CRM Dashboard" width="900" style="border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.12);" />
+</p>
+
 ### What that looks like in practice
 
 ```
@@ -283,7 +287,7 @@ curl -X POST http://localhost:3001/api/agents/provision \
 
 Or navigate to **Settings** in the dashboard to provision agents with auto-generated API keys.
 
-> **`developer`-role agents require peer approval** — their JWTs are `pending_approval` until an active developer approves. To bootstrap the first developer: `UPDATE agents SET status='active' WHERE id='<agent_id>';` directly in the DB. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full walkthrough.
+> **`developer`-role agents** are automatically activated when provisioned via `POST /api/agents/provision` (admin key required). Self-service `developer` registrations via the standard flow remain `pending_approval` until peer-approved.
 
 ---
 

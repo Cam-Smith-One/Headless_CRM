@@ -5,6 +5,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.4] — 2026-05-17 — Bug fixes: routing, agent activation, pipeline deletion, dashboard widgets
+
+Seven bugs found and fixed via comprehensive multi-persona E2E testing (94/95 assertions passing).
+
+### Fixed
+
+- **Export routes returning 404** — `GET /api/:collection/export.csv` routes were silently
+  swallowed by the preceding `GET /api/:collection/:id` dynamic route. Moved all export
+  routes above the `/:id` block so Hono matches them first.
+
+- **`toCsv()` crash on empty result set** — `records[0]` was `undefined` when the export
+  query returned no rows, throwing on header extraction. Added an early-return guard that
+  returns an empty string for zero-row exports.
+
+- **Developer agents stuck as `pending_approval`** — Admin provision via `POST /api/agents/provision`
+  now calls `activateAgent()` immediately after provisioning if the new agent is not already
+  active, so all admin-provisioned agents start in the `active` state regardless of role.
+
+- **Pipeline delete 500 FK error** — SQLite enforces `PRAGMA foreign_keys = ON`; deals have
+  a `pipeline_id NOT NULL` column that cannot be nulled out. The pipeline delete service now
+  hard-deletes archived deals (and their `deal_contacts` join rows) before removing the
+  pipeline, allowing the FK constraint to be satisfied cleanly.
+
+- **Dashboard "+ Add Widget" dropdown doing nothing** — `DropdownMenuItem` from `@base-ui/react`
+  fires `onClick`, not `onSelect`. Corrected the prop name so selecting a widget from the
+  dropdown correctly adds it to the layout.
+
+- **OpenAPI discriminated union for pipeline triggers** — `PipelineTriggerCreate` schema now
+  correctly documents the three `triggerType` variants (`email_event`, `field_change`,
+  `time_elapsed`) as a discriminated union with per-variant required fields.
+
+- **Version bump** — API version string updated to `0.1.4` across OpenAPI spec and package metadata.
+
+### Added
+
+- **Favicon** — Dashboard now uses `logo.png` as browser tab icon (via Next.js `metadata.icons`).
+- **Dashboard screenshot** — README now includes a live dashboard preview screenshot below the opening quote.
+
+---
+
 ## [0.1.3] — 2026-05-17 — Feature expansion: SLA, merge, enrichment, saved searches
 
 Nine improvements driven by multi-persona E2E testing and agent workflow gaps.
