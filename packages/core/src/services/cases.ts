@@ -15,6 +15,8 @@ export const createCaseSchema = z.object({
   companyId: z.string().optional(),
   dealId: z.string().optional(),
   assignedAgentId: z.string().optional(),
+  dueAt: z.string().datetime().optional(),
+  slaHours: z.number().int().positive().optional(),
   customFields: z.record(z.unknown()).optional(),
 });
 

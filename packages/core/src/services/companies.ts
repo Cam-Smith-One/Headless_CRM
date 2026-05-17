@@ -169,5 +169,51 @@ export function createCompaniesService(
 
       return { data, total: Number(count), limit, offset, hasMore: offset + data.length < Number(count) };
     },
+
+    /**
+     * Apply enrichment data to a company. Standard fields fill in missing
+     * values; everything else is merged into customFields.
+     */
+    async enrich(ctx: CrmContext, id: string, data: Record<string, unknown>) {
+      const existing = await this.getById(ctx, id);
+      if (!existing) throw new Error(`Company ${id} not found`);
+
+      const standardFields = ["name", "domain", "industry", "size", "website", "phone", "description"] as const;
+      const updates: Record<string, unknown> = {};
+
+      for (const field of standardFields) {
+        if (data[field] !== undefined && !(existing as any)[field]) {
+          updates[field] = data[field];
+        }
+        delete data[field];
+      }
+
+      if (Object.keys(data).length > 0) {
+        const existingCF = ((existing as any).customFields as Record<string, unknown>) ?? {};
+        updates.customFields = { ...data, ...existingCF };
+      }
+
+      if (Object.keys(updates).length === 0) return existing;
+
+      const [record] = await db
+        .update(companies)
+        .set({ ...updates, updatedByAgentId: ctx.agentId, updatedAt: new Date() })
+        .where(and(eq(companies.id, id), eq(companies.tenantId, ctx.tenantId)))
+        .returning();
+
+      await events.emit({
+        tenantId: ctx.tenantId,
+        eventType: "companies.enriched",
+        recordType: "companies",
+        recordId: id,
+        agentId: ctx.agentId,
+        userId: ctx.userId,
+        changes: Object.fromEntries(
+          Object.entries(updates).map(([k, v]) => [k, { before: (existing as any)[k], after: v }])
+        ),
+      });
+
+      return record;
+    },
   };
 }

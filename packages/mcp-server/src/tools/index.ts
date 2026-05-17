@@ -463,6 +463,39 @@ export function defineTools(deps: ToolDeps) {
       },
     },
 
+    crm_bulk_delete: {
+      description: "Soft-delete multiple records of the same collection in one call. Max 500 ids per call.",
+      inputSchema: z.object({
+        collection: z.enum(["contacts", "companies", "deals", "cases"]),
+        ids: z.array(z.string().min(1)).min(1).max(500),
+      }),
+      annotations: { readOnly: false, destructive: true },
+      async execute(input: any) {
+        const service = (() => {
+          switch (input.collection) {
+            case "contacts": return crm.contacts;
+            case "companies": return crm.companies;
+            case "deals": return crm.deals;
+            case "cases": return crm.cases;
+            default: throw new Error(`Cannot delete from ${input.collection}`);
+          }
+        })();
+        let deleted = 0;
+        let failed = 0;
+        const errors: { id: string; error: string }[] = [];
+        for (const id of input.ids) {
+          try {
+            await service.delete(ctx, id);
+            deleted++;
+          } catch (err: any) {
+            failed++;
+            errors.push({ id, error: err.message ?? String(err) });
+          }
+        }
+        return { deleted, failed, errors };
+      },
+    },
+
     crm_bulk_update: {
       description:
         "Batch update multiple records of the same collection in one call",
