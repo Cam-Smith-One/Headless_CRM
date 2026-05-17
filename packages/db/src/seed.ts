@@ -40,12 +40,13 @@ async function seed() {
   const { db, schema, close } = await getDbAndSchema();
   console.log(`Seeding database (${isSqlite ? "SQLite" : "Postgres"})...`);
 
-  // Tenant
-  const tenantId = "tenant_demo";
+  // Tenant — override with SEED_TENANT_ID env var (e.g. SEED_TENANT_ID=tenant_prod)
+  const tenantId = process.env.SEED_TENANT_ID ?? "tenant_demo";
+  const tenantSlug = tenantId.replace(/^tenant_/, "");
   await db.insert(schema.tenants).values({
     id: tenantId,
-    name: "Demo Workspace",
-    slug: "demo",
+    name: `${tenantSlug.charAt(0).toUpperCase() + tenantSlug.slice(1)} Workspace`,
+    slug: tenantSlug,
   }).onConflictDoNothing();
 
   // Agents
@@ -213,7 +214,7 @@ async function seed() {
   }
 
   console.log("Seed complete!");
-  console.log(`  Tenant: ${tenantId}`);
+  console.log(`  Tenant: ${tenantId} (override with SEED_TENANT_ID env var)`);
   console.log(`  Agents: ${Object.keys(agentIds).length}`);
   console.log(`  Companies: ${companies.length}`);
   console.log(`  Contacts: ${contactData.length}`);

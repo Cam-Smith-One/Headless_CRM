@@ -4,20 +4,46 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter } from "../types";
 
-export const createTriggerSchema = z.object({
-  pipelineId: z.string().min(1),
-  triggerEvent: z.enum([
-    "email.opened",
-    "email.clicked",
-    "email.delivered",
-    "email.replied",
-  ]),
+export const createTriggerSchema = z.discriminatedUnion("triggerType", [
+  z.object({
+    triggerType: z.literal("email_event"),
+    pipelineId: z.string().min(1),
+    triggerEvent: z.enum(["email.opened", "email.clicked", "email.delivered", "email.replied"]),
+    fromStage: z.string().nullable().optional(),
+    toStage: z.string().min(1),
+    active: z.boolean().optional(),
+  }),
+  z.object({
+    triggerType: z.literal("field_change"),
+    pipelineId: z.string().min(1),
+    conditionField: z.string().min(1),
+    conditionOperator: z.enum(["eq", "gt", "lt", "contains"]),
+    conditionValue: z.string().min(1),
+    fromStage: z.string().nullable().optional(),
+    toStage: z.string().min(1),
+    active: z.boolean().optional(),
+  }),
+  z.object({
+    triggerType: z.literal("time_elapsed"),
+    pipelineId: z.string().min(1),
+    fromStage: z.string().min(1),
+    toStage: z.string().min(1),
+    checkIntervalMinutes: z.number().int().positive(),
+    active: z.boolean().optional(),
+  }),
+]);
+
+export const updateTriggerSchema = z.object({
+  triggerType: z.enum(["email_event", "field_change", "time_elapsed"]).optional(),
+  triggerEvent: z.enum(["email.opened", "email.clicked", "email.delivered", "email.replied"]).optional(),
+  conditionField: z.string().optional(),
+  conditionOperator: z.enum(["eq", "gt", "lt", "contains"]).optional(),
+  conditionValue: z.string().optional(),
+  checkIntervalMinutes: z.number().int().positive().optional(),
   fromStage: z.string().nullable().optional(),
-  toStage: z.string().min(1),
+  toStage: z.string().min(1).optional(),
   active: z.boolean().optional(),
 });
-
-export const updateTriggerSchema = createTriggerSchema.partial();
 
 export type CreateTriggerInput = z.infer<typeof createTriggerSchema>;
 export type UpdateTriggerInput = z.infer<typeof updateTriggerSchema>;
@@ -52,7 +78,12 @@ export function createPipelineTriggersService(db: any, events: EventEmitter) {
           id,
           tenantId: ctx.tenantId,
           pipelineId: parsed.pipelineId,
-          triggerEvent: parsed.triggerEvent,
+          triggerType: parsed.triggerType,
+          triggerEvent: "triggerEvent" in parsed ? parsed.triggerEvent : null,
+          conditionField: "conditionField" in parsed ? parsed.conditionField : null,
+          conditionOperator: "conditionOperator" in parsed ? parsed.conditionOperator : null,
+          conditionValue: "conditionValue" in parsed ? parsed.conditionValue : null,
+          checkIntervalMinutes: "checkIntervalMinutes" in parsed ? parsed.checkIntervalMinutes : null,
           fromStage: parsed.fromStage ?? null,
           toStage: parsed.toStage,
           active: parsed.active ?? true,
