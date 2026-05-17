@@ -61,6 +61,7 @@ export const notifications = active.notifications;
 export const attachments = active.attachments;
 export const tags = active.tags;
 export const recordTags = active.recordTags;
+export const savedSearches = active.savedSearches;
 
 // Postgres-only enums (SQLite uses raw text columns instead). Re-export for
 // code that referenced them; on SQLite they'll be undefined and any code

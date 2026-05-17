@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   timestamp,
+  integer,
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
@@ -27,6 +28,8 @@ export const cases = pgTable(
     companyId: text("company_id").references(() => companies.id),
     dealId: text("deal_id").references(() => deals.id),
     assignedAgentId: text("assigned_agent_id").references(() => agents.id),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    slaHours: integer("sla_hours"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     customFields: jsonb("custom_fields").default({}),
     createdByAgentId: text("created_by_agent_id").references(() => agents.id),

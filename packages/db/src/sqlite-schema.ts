@@ -174,7 +174,12 @@ export const pipelineTriggers = sqliteTable(
     pipelineId: text("pipeline_id")
       .notNull()
       .references(() => pipelines.id),
-    triggerEvent: text("trigger_event").notNull(),
+    triggerType: text("trigger_type").notNull().default("email_event"),
+    triggerEvent: text("trigger_event"),
+    conditionField: text("condition_field"),
+    conditionOperator: text("condition_operator"),
+    conditionValue: text("condition_value"),
+    checkIntervalMinutes: integer("check_interval_minutes"),
     fromStage: text("from_stage"),
     toStage: text("to_stage").notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
@@ -307,6 +312,8 @@ export const cases = sqliteTable(
     companyId: text("company_id").references(() => companies.id),
     dealId: text("deal_id").references(() => deals.id),
     assignedAgentId: text("assigned_agent_id").references(() => agents.id),
+    dueAt: text("due_at"),
+    slaHours: integer("sla_hours"),
     resolvedAt: text("resolved_at"),
     customFields: text("custom_fields", { mode: "json" }).default("{}"),
     createdByAgentId: text("created_by_agent_id").references(() => agents.id),
@@ -677,3 +684,31 @@ export const invites = sqliteTable("invites", {
   acceptedAt: text("accepted_at"),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
+
+// ---------------------------------------------------------------------------
+// Saved Searches
+// ---------------------------------------------------------------------------
+
+export const savedSearches = sqliteTable(
+  "saved_searches",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    name: text("name").notNull(),
+    collection: text("collection").notNull(),
+    filters: text("filters", { mode: "json" }).notNull().default("{}"),
+    createdByAgentId: text("created_by_agent_id").references(() => agents.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("sqlt_saved_searches_tenant_idx").on(table.tenantId),
+    index("sqlt_saved_searches_collection_idx").on(table.tenantId, table.collection),
+  ]
+);

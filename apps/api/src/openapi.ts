@@ -10,9 +10,9 @@ export function getOpenAPISpec() {
     openapi: "3.1.0",
     info: {
       title: "Headless CRM API",
-      version: "0.1.2",
+      version: "0.1.3",
       description:
-        "Agent-first headless CRM with MCP-native interface for AI agents. Provides full CRUD for contacts, companies, deals, cases, pipelines, activities, tags, pipeline triggers, approvals, attachments, notifications, webhooks, custom fields, emails, events, and agents.",
+        "Agent-first headless CRM with MCP-native interface for AI agents. Provides full CRUD for contacts, companies, deals, cases, pipelines, activities, tags, pipeline triggers, approvals, attachments, notifications, webhooks, custom fields, emails, events, agents, and saved searches.",
       license: { name: "AGPL-3.0", url: "https://www.gnu.org/licenses/agpl-3.0.html" },
     },
     servers: [{ url: "/", description: "Current deployment" }],
@@ -283,13 +283,15 @@ export function getOpenAPISpec() {
             tenantId: { type: "string" },
             title: { type: "string" },
             description: { type: ["string", "null"] },
-            status: { type: "string", enum: ["open", "in_progress", "resolved", "closed"] },
-            priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
+            status: { type: "string", enum: ["open", "in_progress", "waiting", "resolved", "closed"] },
+            priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
             category: { type: ["string", "null"] },
             contactId: { type: ["string", "null"] },
             companyId: { type: ["string", "null"] },
             dealId: { type: ["string", "null"] },
             assignedAgentId: { type: ["string", "null"] },
+            dueAt: { type: ["string", "null"], format: "date-time", description: "SLA deadline" },
+            slaHours: { type: ["integer", "null"], description: "SLA window in hours from creation" },
             resolvedAt: { type: ["string", "null"], format: "date-time" },
             customFields: { type: "object", additionalProperties: true },
             createdByAgentId: { type: ["string", "null"] },
@@ -300,17 +302,19 @@ export function getOpenAPISpec() {
         },
         CaseCreate: {
           type: "object",
-          required: ["title"],
+          required: ["title", "contactId"],
           properties: {
             title: { type: "string" },
             description: { type: "string" },
-            status: { type: "string" },
-            priority: { type: "string" },
+            status: { type: "string", enum: ["open", "in_progress", "waiting", "resolved", "closed"] },
+            priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
             category: { type: "string" },
             contactId: { type: "string" },
             companyId: { type: "string" },
             dealId: { type: "string" },
             assignedAgentId: { type: "string" },
+            dueAt: { type: "string", format: "date-time" },
+            slaHours: { type: "integer", minimum: 1 },
             customFields: { type: "object", additionalProperties: true },
           },
         },
@@ -319,14 +323,57 @@ export function getOpenAPISpec() {
           properties: {
             title: { type: "string" },
             description: { type: "string" },
-            status: { type: "string" },
-            priority: { type: "string" },
+            status: { type: "string", enum: ["open", "in_progress", "waiting", "resolved", "closed"] },
+            priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
             category: { type: "string" },
             contactId: { type: "string" },
             companyId: { type: "string" },
             dealId: { type: "string" },
             assignedAgentId: { type: "string" },
+            dueAt: { type: "string", format: "date-time" },
+            slaHours: { type: "integer", minimum: 1 },
             customFields: { type: "object", additionalProperties: true },
+          },
+        },
+
+        // ── Saved Search ──────────────────────────────────────────
+        SavedSearch: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            tenantId: { type: "string" },
+            name: { type: "string" },
+            collection: { type: "string", enum: ["contacts", "companies", "deals", "cases", "activities"] },
+            filters: { type: "object", additionalProperties: true },
+            createdByAgentId: { type: ["string", "null"] },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        SavedSearchCreate: {
+          type: "object",
+          required: ["name", "collection"],
+          properties: {
+            name: { type: "string", maxLength: 200 },
+            collection: { type: "string", enum: ["contacts", "companies", "deals", "cases", "activities"] },
+            filters: { type: "object", additionalProperties: true },
+          },
+        },
+        SavedSearchUpdate: {
+          type: "object",
+          properties: {
+            name: { type: "string", maxLength: 200 },
+            filters: { type: "object", additionalProperties: true },
+          },
+        },
+
+        // ── Bulk operation results ─────────────────────────────────
+        BulkDeleteResult: {
+          type: "object",
+          properties: {
+            deleted: { type: "integer" },
+            failed: { type: "integer" },
+            errors: { type: "array", items: { type: "object", properties: { id: { type: "string" }, error: { type: "string" } } } },
           },
         },
 
@@ -688,6 +735,7 @@ export function getOpenAPISpec() {
       { name: "Webhooks", description: "Webhook subscriptions and deliveries" },
       { name: "Emails", description: "Outbound email via Resend" },
       { name: "Custom Fields", description: "Schema extension — developer role required for write" },
+      { name: "Saved Searches", description: "Reusable named filter sets for any collection" },
       { name: "Stats", description: "Dashboard statistics" },
       { name: "MCP", description: "Model Context Protocol endpoint" },
       { name: "System", description: "Health checks, setup, and docs" },
@@ -749,6 +797,42 @@ export function getOpenAPISpec() {
           { $ref: "#/components/parameters/SearchParam" },
         ],
       }),
+      "/api/contacts/{id}/merge": {
+        post: {
+          tags: ["Contacts"],
+          summary: "Merge another contact into this one",
+          description: "Primary contact fields win. Gaps are filled from `otherId`. All FK references are re-pointed and the other contact is archived. Requires operator role.",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["otherId"], properties: { otherId: { type: "string" } } } } } },
+          responses: {
+            "200": { description: "Merged contact", content: { "application/json": { schema: { $ref: "#/components/schemas/Contact" } } } },
+            "404": { description: "Contact not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/contacts/{id}/enrich": {
+        post: {
+          tags: ["Contacts"],
+          summary: "Apply enrichment data to a contact",
+          description: "Standard fields (firstName, lastName, email, etc.) fill missing values. Non-standard keys go into customFields. Requires operator role.",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["data"], properties: { data: { type: "object", additionalProperties: true } } } } } },
+          responses: {
+            "200": { description: "Enriched contact", content: { "application/json": { schema: { $ref: "#/components/schemas/Contact" } } } },
+            "404": { description: "Contact not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/contacts/bulk": {
+        delete: {
+          tags: ["Contacts"],
+          summary: "Bulk soft-delete contacts (developer role required)",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["ids"], properties: { ids: { type: "array", items: { type: "string" }, maxItems: 500 } } } } } },
+          responses: {
+            "200": { description: "Bulk delete result", content: { "application/json": { schema: { $ref: "#/components/schemas/BulkDeleteResult" } } } },
+          },
+        },
+      },
 
       // ── Companies ─────────────────────────────────────────────
       ...crudPaths("companies", "Company", "Companies", {
@@ -758,6 +842,29 @@ export function getOpenAPISpec() {
           { $ref: "#/components/parameters/SearchParam" },
         ],
       }),
+      "/api/companies/{id}/enrich": {
+        post: {
+          tags: ["Companies"],
+          summary: "Apply enrichment data to a company",
+          description: "Standard fields (name, domain, industry, etc.) fill missing values. Non-standard keys go into customFields. Requires operator role.",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["data"], properties: { data: { type: "object", additionalProperties: true } } } } } },
+          responses: {
+            "200": { description: "Enriched company", content: { "application/json": { schema: { $ref: "#/components/schemas/Company" } } } },
+            "404": { description: "Company not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/companies/bulk": {
+        delete: {
+          tags: ["Companies"],
+          summary: "Bulk soft-delete companies (developer role required)",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["ids"], properties: { ids: { type: "array", items: { type: "string" }, maxItems: 500 } } } } } },
+          responses: {
+            "200": { description: "Bulk delete result", content: { "application/json": { schema: { $ref: "#/components/schemas/BulkDeleteResult" } } } },
+          },
+        },
+      },
 
       // ── Deals ─────────────────────────────────────────────────
       ...crudPaths("deals", "Deal", "Deals", {
@@ -797,6 +904,17 @@ export function getOpenAPISpec() {
             { name: "contactId", in: "path", required: true, schema: { type: "string" } },
           ],
           responses: { "200": { description: "Contact unlinked" } },
+        },
+      },
+      "/api/deals/{id}/stage-history": {
+        get: {
+          tags: ["Deals"],
+          summary: "Get deal stage change history",
+          description: "Returns all `deals.stage_changed` events for this deal, newest first.",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Stage history events", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/CrmEvent" } } } } },
+          },
         },
       },
 
@@ -936,6 +1054,31 @@ export function getOpenAPISpec() {
           ],
           responses: {
             "200": { description: "Approval list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Approval" } } } } },
+          },
+        },
+        post: {
+          tags: ["Approvals"],
+          summary: "Request a new approval (operator role required)",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["type", "title"],
+                  properties: {
+                    type: { type: "string", enum: ["agent_provision", "destructive_action", "bulk_operation", "escalation"] },
+                    title: { type: "string", maxLength: 200 },
+                    description: { type: "string", maxLength: 2000 },
+                    metadata: { type: "object", additionalProperties: true },
+                    expiresAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "201": { description: "Approval request created", content: { "application/json": { schema: { $ref: "#/components/schemas/Approval" } } } },
           },
         },
       },
@@ -1262,6 +1405,76 @@ export function getOpenAPISpec() {
         createDescription: "Requires `developer` role.",
         updateDescription: "Requires `developer` role.",
       }),
+
+      // ── Bulk delete for deals and cases ───────────────────────
+      "/api/deals/bulk": {
+        delete: {
+          tags: ["Deals"],
+          summary: "Bulk soft-delete deals (developer role required)",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["ids"], properties: { ids: { type: "array", items: { type: "string" }, maxItems: 500 } } } } } },
+          responses: {
+            "200": { description: "Bulk delete result", content: { "application/json": { schema: { $ref: "#/components/schemas/BulkDeleteResult" } } } },
+          },
+        },
+      },
+      "/api/cases/bulk": {
+        delete: {
+          tags: ["Cases"],
+          summary: "Bulk soft-delete cases (developer role required)",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["ids"], properties: { ids: { type: "array", items: { type: "string" }, maxItems: 500 } } } } } },
+          responses: {
+            "200": { description: "Bulk delete result", content: { "application/json": { schema: { $ref: "#/components/schemas/BulkDeleteResult" } } } },
+          },
+        },
+      },
+
+      // ── Saved Searches ────────────────────────────────────────
+      "/api/saved-searches": {
+        get: {
+          tags: ["Saved Searches"],
+          summary: "List saved searches",
+          parameters: [
+            { name: "collection", in: "query", schema: { type: "string", enum: ["contacts", "companies", "deals", "cases", "activities"] } },
+          ],
+          responses: {
+            "200": { description: "Saved searches", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/SavedSearch" } } } } },
+          },
+        },
+        post: {
+          tags: ["Saved Searches"],
+          summary: "Create a saved search",
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SavedSearchCreate" } } } },
+          responses: {
+            "201": { description: "Saved search created", content: { "application/json": { schema: { $ref: "#/components/schemas/SavedSearch" } } } },
+          },
+        },
+      },
+      "/api/saved-searches/{id}": {
+        get: {
+          tags: ["Saved Searches"],
+          summary: "Get a saved search by ID",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: {
+            "200": { description: "Saved search", content: { "application/json": { schema: { $ref: "#/components/schemas/SavedSearch" } } } },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+        patch: {
+          tags: ["Saved Searches"],
+          summary: "Update a saved search",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SavedSearchUpdate" } } } },
+          responses: {
+            "200": { description: "Updated saved search", content: { "application/json": { schema: { $ref: "#/components/schemas/SavedSearch" } } } },
+          },
+        },
+        delete: {
+          tags: ["Saved Searches"],
+          summary: "Delete a saved search",
+          parameters: [{ $ref: "#/components/parameters/IdParam" }],
+          responses: { "200": { description: "Deleted" } },
+        },
+      },
 
       // ── Semantic search ───────────────────────────────────────
       "/api/search/semantic": {
