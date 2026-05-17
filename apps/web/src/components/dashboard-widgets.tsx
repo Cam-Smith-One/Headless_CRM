@@ -151,7 +151,7 @@ export function MetricsWidget() {
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {metrics.map((m) => (
         <Card key={m.label} className="bg-card/50">
           <CardContent className="p-4">
@@ -206,25 +206,32 @@ export function ActivityFeedWidget() {
         {events.map((item) => (
           <div
             key={item.id}
-            className="flex items-center gap-3 px-4 py-2.5 text-[13px]"
+            className="flex items-start gap-2.5 px-3 py-2.5 text-[12px]"
           >
             <ActivityIcon type={item.eventType} />
-            <div className="flex-1 min-w-0">
-              <span className="text-muted-foreground">
-                {item.agentId ?? "system"}
-              </span>
-              <span className="text-muted-foreground mx-1.5">
-                {formatEventAction(item.eventType)}
-              </span>
-              <span className="font-medium truncate">{item.recordId}</span>
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 h-4 shrink-0"
+                >
+                  {item.recordType}
+                </Badge>
+                <span className="text-muted-foreground font-medium capitalize">
+                  {formatEventAction(item.eventType)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="font-mono truncate max-w-[120px] sm:max-w-[180px]">
+                  {item.agentId ? item.agentId.slice(-12) : "system"}
+                </span>
+                <span className="shrink-0">·</span>
+                <span className="font-mono truncate max-w-[100px] sm:max-w-[160px]">
+                  {item.recordId.slice(-10)}
+                </span>
+              </div>
             </div>
-            <Badge
-              variant="secondary"
-              className="text-[10px] font-mono px-1.5 py-0 h-5 shrink-0"
-            >
-              {item.recordType}
-            </Badge>
-            <span className="text-[11px] text-muted-foreground tabular-nums font-mono shrink-0 w-14 text-right">
+            <span className="text-[10px] text-muted-foreground tabular-nums font-mono shrink-0 pt-0.5">
               {formatEventTime(item.createdAt)}
             </span>
           </div>
@@ -310,15 +317,60 @@ export function AgentLeaderboardWidget() {
   );
 }
 
-export function PipelineSummaryWidget() {
-  const { stats } = useStats();
+const STAGE_COLORS = [
+  "bg-blue-500",
+  "bg-indigo-500",
+  "bg-purple-500",
+  "bg-green-500",
+  "bg-yellow-500",
+  "bg-red-500",
+];
 
-  const stages = [
-    { label: "Qualification", pct: 35, color: "bg-blue-500" },
-    { label: "Proposal", pct: 25, color: "bg-indigo-500" },
-    { label: "Negotiation", pct: 20, color: "bg-purple-500" },
-    { label: "Closed Won", pct: 20, color: "bg-green-500" },
-  ];
+export function PipelineSummaryWidget() {
+  const { token } = useAuth();
+  const { stats } = useStats();
+  const [stageData, setStageData] = useState<{ label: string; value: number; pct: number; color: string }[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    // Fetch deals and group by stage to build real distribution
+    Promise.all([
+      apiFetch<any>("/api/deals?limit=200", { token }),
+      apiFetch<any>("/api/pipelines", { token }),
+    ]).then(([dealsRes, pipelinesRes]) => {
+      const deals: any[] = Array.isArray(dealsRes) ? dealsRes : dealsRes?.data ?? [];
+      const pipelines: any[] = Array.isArray(pipelinesRes) ? pipelinesRes : pipelinesRes?.data ?? [];
+
+      // Collect ordered stages from first pipeline
+      const orderedStages: string[] = pipelines[0]?.stages?.map((s: any) => s.name) ?? [];
+
+      // Sum value per stage
+      const stageTotals: Record<string, number> = {};
+      for (const d of deals) {
+        const stage = d.stage ?? "Unknown";
+        stageTotals[stage] = (stageTotals[stage] ?? 0) + (Number(d.value) || 0);
+      }
+
+      const total = Object.values(stageTotals).reduce((a, b) => a + b, 0);
+
+      // Build ordered list (use pipeline order, then any extras)
+      const stageNames = [
+        ...orderedStages.filter((s) => stageTotals[s] !== undefined),
+        ...Object.keys(stageTotals).filter((s) => !orderedStages.includes(s)),
+      ];
+
+      if (stageNames.length === 0) return;
+
+      setStageData(
+        stageNames.map((label, i) => ({
+          label,
+          value: stageTotals[label] ?? 0,
+          pct: total > 0 ? Math.round(((stageTotals[label] ?? 0) / total) * 100) : 0,
+          color: STAGE_COLORS[i % STAGE_COLORS.length],
+        }))
+      );
+    }).catch(() => {});
+  }, [token]);
 
   return (
     <div className="space-y-3">
@@ -328,29 +380,32 @@ export function PipelineSummaryWidget() {
           {stats ? `$${stats.deals.pipelineValue.toLocaleString()}` : "—"}
         </span>
       </div>
-      <div className="flex h-3 w-full overflow-hidden rounded-full">
-        {stages.map((s) => (
-          <div
-            key={s.label}
-            className={`${s.color} transition-all`}
-            style={{ width: `${s.pct}%` }}
-          />
-        ))}
-      </div>
-      <div className="space-y-1.5">
-        {stages.map((s) => (
-          <div
-            key={s.label}
-            className="flex items-center justify-between text-[11px]"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className={`inline-block h-2 w-2 rounded-full ${s.color}`} />
-              <span className="text-muted-foreground">{s.label}</span>
-            </div>
-            <span className="font-mono tabular-nums">{s.pct}%</span>
+      {stageData.length > 0 ? (
+        <>
+          <div className="flex h-3 w-full overflow-hidden rounded-full">
+            {stageData.map((s) => (
+              <div
+                key={s.label}
+                className={`${s.color} transition-all`}
+                style={{ width: `${s.pct}%` }}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+          <div className="space-y-1.5">
+            {stageData.map((s) => (
+              <div key={s.label} className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${s.color}`} />
+                  <span className="text-muted-foreground truncate">{s.label}</span>
+                </div>
+                <span className="font-mono tabular-nums ml-2 shrink-0">{s.pct}%</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="text-[11px] text-muted-foreground text-center py-2">No pipeline data</div>
+      )}
     </div>
   );
 }

@@ -109,10 +109,10 @@ export default function CompaniesPage() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Company</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Domain</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Industry</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Size</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Managed By</th>
+                <th className="hidden sm:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Domain</th>
+                <th className="hidden sm:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Industry</th>
+                <th className="hidden lg:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Size</th>
+                <th className="hidden md:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Managed By</th>
               </tr>
             </thead>
             <tbody>
@@ -129,10 +129,10 @@ export default function CompaniesPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">{c.domain}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{c.industry}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{c.size}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="hidden sm:table-cell px-4 py-2.5 text-muted-foreground font-mono text-xs">{c.domain}</td>
+                  <td className="hidden sm:table-cell px-4 py-2.5 text-muted-foreground">{c.industry}</td>
+                  <td className="hidden lg:table-cell px-4 py-2.5 text-muted-foreground">{c.size}</td>
+                  <td className="hidden md:table-cell px-4 py-2.5">
                     <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-5">
                       {c.createdByAgentId ? c.createdByAgentId.slice(0, 12) + "…" : "—"}
                     </Badge>

@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Headless CRM" width={24} height={24} className="rounded-md" />
+          <img src="/logo.png" alt="Headless CRM" width={24} height={24} className="rounded-md" />
           <span className="text-sm font-semibold">Headless CRM</span>
         </div>
         <main className="flex-1 overflow-y-auto">{children}</main>

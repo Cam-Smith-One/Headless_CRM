@@ -387,7 +387,7 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
       <div className="flex items-center gap-2.5 px-4 py-4">
         <div className="flex h-[34px] w-[34px] items-center justify-center rounded-md overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Headless CRM" width={34} height={34} className="rounded-md" />
+          <img src="/logo.png" alt="Headless CRM" width={34} height={34} className="rounded-md" />
         </div>
         <div>
           <p className="text-[15px] font-semibold text-sidebar-foreground leading-none">

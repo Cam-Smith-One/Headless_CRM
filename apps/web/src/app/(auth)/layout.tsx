@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {/* Logo + wordmark */}
         <div className="mb-8 flex flex-col items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Headless CRM" width={48} height={48} className="rounded-xl shadow-sm" />
+          <img src="/logo.png" alt="Headless CRM" width={48} height={48} className="rounded-xl shadow-sm" />
           <div className="text-center">
             <span className="text-lg font-semibold tracking-tight text-foreground">
               Headless CRM

@@ -142,12 +142,12 @@ export default function ContactsPage() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Name</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Email</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Company</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Title</th>
+                <th className="hidden sm:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Email</th>
+                <th className="hidden sm:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Company</th>
+                <th className="hidden lg:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Title</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Status</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Created</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground text-xs">Agent</th>
+                <th className="hidden md:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Created</th>
+                <th className="hidden lg:table-cell px-4 py-2.5 font-medium text-muted-foreground text-xs">Agent</th>
               </tr>
             </thead>
             <tbody>
@@ -168,18 +168,18 @@ export default function ContactsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">{c.email}</td>
-                  <td className="px-4 py-2.5">{companyMap[c.companyId] || (c.companyId ? c.companyId.slice(0, 8) + "..." : "\u2014")}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{c.title || "\u2014"}</td>
+                  <td className="hidden sm:table-cell px-4 py-2.5 text-muted-foreground font-mono text-xs truncate max-w-[160px]">{c.email}</td>
+                  <td className="hidden sm:table-cell px-4 py-2.5">{companyMap[c.companyId] || (c.companyId ? c.companyId.slice(0, 8) + "..." : "\u2014")}</td>
+                  <td className="hidden lg:table-cell px-4 py-2.5 text-muted-foreground">{c.title || "\u2014"}</td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColors[c.stateCode] ?? statusColors.active}`}>
                       {c.stateCode || "active"}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs tabular-nums">
+                  <td className="hidden md:table-cell px-4 py-2.5 text-muted-foreground font-mono text-xs tabular-nums">
                     {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "\u2014"}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="hidden lg:table-cell px-4 py-2.5">
                     <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-5">
                       {c.createdByAgentId ? c.createdByAgentId.slice(0, 12) + "\u2026" : "\u2014"}
                     </Badge>
