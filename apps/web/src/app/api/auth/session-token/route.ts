@@ -69,6 +69,14 @@ export async function GET(request: NextRequest) {
     });
     agentId = result.agent.id;
     agentRole = dashboardRole;
+
+    // Dashboard agents are implicitly approved — the human user is already
+    // authenticated, so the normal "developer requires human approval" gate
+    // doesn't apply here. Activate immediately.
+    await db
+      .update(agents)
+      .set({ status: "active" })
+      .where(eq(agents.id, agentId));
   }
 
   // Issue a fresh 30-day JWT for this agent
