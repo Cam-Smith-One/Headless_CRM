@@ -550,20 +550,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and PR guidelines.
 
 ---
 
-## Star History
-
-<p align="center">
-  <a href="https://www.star-history.com/#Cam-Smith-One/Headless_CRM&type=date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Cam-Smith-One/Headless_CRM&type=date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Cam-Smith-One/Headless_CRM&type=date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Cam-Smith-One/Headless_CRM&type=date" />
-    </picture>
-  </a>
-</p>
-
----
-
 ## Contributors
 
 <a href="https://github.com/Cam-Smith-One/Headless_CRM/graphs/contributors">
