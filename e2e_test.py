@@ -4,12 +4,19 @@ Headless CRM — Comprehensive E2E Test Suite
 Tests: all CRUD surfaces, RBAC personas, agent onboarding, dashboard widgets
 """
 
-import sys, json, time, requests
+import sys, json, time, os, requests
 from datetime import datetime, timezone
 
-API        = "http://localhost:3001"
-ADMIN_KEY  = "REDACTED"
-TENANT_ID  = "REDACTED"
+API        = os.environ.get("HCRM_API_URL", "http://localhost:3001")
+ADMIN_KEY  = os.environ.get("ADMIN_API_KEY")
+TENANT_ID  = os.environ.get("HCRM_TENANT_ID")
+
+if not ADMIN_KEY:
+    sys.exit("Error: ADMIN_API_KEY environment variable is required.\n"
+             "  export ADMIN_API_KEY=your-admin-key")
+if not TENANT_ID:
+    sys.exit("Error: HCRM_TENANT_ID environment variable is required.\n"
+             "  export HCRM_TENANT_ID=your-tenant-id")
 TS         = int(time.time())
 
 PASS = "✅"; FAIL = "❌"; SKIP = "⚠️"
