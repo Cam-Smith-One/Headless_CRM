@@ -96,5 +96,5 @@ To update a kit version:
 ## Support
 
 - Issues: [github.com/Cam-Smith-One/Headless_CRM/issues](https://github.com/Cam-Smith-One/Headless_CRM/issues)
-- Email: support@humaie.com
+- Email: hello@humaie.com
 - Dashboard: [humaie.com](https://humaie.com)

@@ -45,7 +45,7 @@ This Code of Conduct applies within all project spaces — GitHub issues, pull r
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the project maintainers via a **[GitHub private security advisory](https://github.com/Cam-Smith-One/Headless_CRM/security/advisories/new)** (this keeps reports confidential from the public) or by emailing **support@humaie.com**.
+Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the project maintainers via a **[GitHub private security advisory](https://github.com/Cam-Smith-One/Headless_CRM/security/advisories/new)** (this keeps reports confidential from the public) or by emailing **hello@humaie.com**.
 
 All complaints will be reviewed and investigated promptly and fairly. We aim to acknowledge reports **within 2–4 business days**. Maintainers are obligated to maintain confidentiality with regard to the reporter of an incident.
 
