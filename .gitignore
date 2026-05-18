@@ -27,3 +27,9 @@ coverage/
 # Editor
 .idea/
 .vscode/settings.json
+
+# Claude Code (may contain local JWTs and internal URLs)
+.claude/
+
+# Internal reports (not for public consumption)
+TEST_REPORT.md

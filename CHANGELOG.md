@@ -345,5 +345,4 @@ are addressed; the repo is ready to flip public.
 
 ## Earlier history
 
-See `git log` for commits before this hardening pass. The `humaie-dev/headless-crm`
-upstream maintains its own changelog.
+See `git log` for full commit history prior to this hardening pass.
