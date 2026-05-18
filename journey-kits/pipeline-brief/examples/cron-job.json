@@ -1,0 +1,11 @@
+{
+  "schedule": "0 8 * * 1-5",
+  "timezone": "America/New_York",
+  "description": "Weekday morning pipeline brief at 8am ET",
+  "prompt": "Run the pipeline brief workflow and deliver to the configured destination",
+  "skill": "pipeline-brief",
+  "env": {
+    "STALE_DEAL_DAYS": "7",
+    "MAX_BULLETS_PER_SECTION": "5"
+  }
+}

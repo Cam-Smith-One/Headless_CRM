@@ -113,6 +113,22 @@ Visit http://localhost:3000 for the dashboard, http://localhost:3001/api/docs fo
 npx create-headless-crm
 ```
 
+### Option 6: Journey Kits (agent workflows)
+
+Install pre-built agent workflows directly from the [Journey Kits registry](https://www.journeykits.ai):
+
+```bash
+# Connect your agent to Headless CRM via MCP (start here)
+npx journey install onezeroten/headless-crm-connect
+
+# Add workflow kits
+npx journey install onezeroten/pipeline-brief        # daily pipeline digest
+npx journey install onezeroten/lead-qualification    # research + score leads
+npx journey install onezeroten/contact-enrichment    # fill missing contact data
+```
+
+Works with Claude Code, Cursor, Codex, OpenClaw, and any agent that supports Journey Kits.
+
 ---
 
 ## Features

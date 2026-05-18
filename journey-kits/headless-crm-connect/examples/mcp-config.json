@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "headless-crm": {
+      "type": "http",
+      "url": "http://localhost:3001/mcp",
+      "headers": {
+        "Authorization": "Bearer hcrm_sk_YOUR_KEY_HERE"
+      }
+    }
+  }
+}
