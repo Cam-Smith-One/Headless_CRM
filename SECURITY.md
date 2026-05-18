@@ -1,94 +1,127 @@
 # Security Policy
 
+## Supported Versions
+
+We actively maintain the latest release on `main`. Security fixes are backported if the vulnerability is critical and the previous version is less than 3 months old.
+
+| Version | Supported |
+|---------|-----------|
+| Latest (`main`) | ✅ Active |
+| Previous minor | ⚠️ Critical fixes only (≤ 3 months) |
+| Older | ❌ Please upgrade |
+
+---
+
 ## Reporting a Vulnerability
 
-If you discover a security issue in Headless CRM, please **do not file a
-public GitHub issue**. Instead, email the maintainers privately so we can
-investigate and ship a fix before public disclosure:
+**Do not file a public GitHub issue for security vulnerabilities.** Public disclosure before a fix is available puts all self-hosted deployments at risk.
 
-- **Contact:** open a private security advisory on GitHub at
-  https://github.com/Cam-Smith-One/Headless_CRM/security/advisories/new
-- **Acknowledgement:** within 72 hours.
-- **Triage + initial fix target:** within 14 days for critical issues.
+### Preferred: GitHub Private Advisory
 
-Please include, where possible:
+Open a private security advisory directly on GitHub — only you and the maintainers can see it:
 
-- A clear reproduction (steps, payload, environment).
-- The version (commit SHA) you tested against.
-- Affected endpoints / files / services.
-- Your proposed severity classification (CVSS or qualitative).
+👉 **https://github.com/Cam-Smith-One/Headless_CRM/security/advisories/new**
 
-We're a small team — clear, well-scoped reports get fixed faster.
+### Alternative: Email
+
+If you cannot use GitHub advisories, email **cameronsmith@smithand.co** with the subject line `[SECURITY] Headless CRM — <brief description>`.
+
+---
+
+## What to Include
+
+Clear, well-scoped reports get fixed faster. Please include:
+
+- **Reproduction steps** — exact HTTP requests, payloads, or code paths
+- **Version / commit SHA** you tested against
+- **Affected component(s)** — endpoint, file, service
+- **Impact assessment** — what an attacker can do, and under what conditions
+- **Suggested severity** — CVSS score or qualitative (critical / high / medium / low)
+- **Any proposed fix** — optional but appreciated
+
+---
+
+## Response Timeline
+
+| Milestone | Target |
+|-----------|--------|
+| **Initial acknowledgement** | Within **2–4 business days** |
+| **Triage + severity confirmation** | Within 7 days |
+| **Fix for critical / high issues** | Within 14 days of confirmation |
+| **Fix for medium / low issues** | Within 30 days of confirmation |
+| **Public disclosure** | Coordinated with reporter after fix ships |
+
+We're a small team — we appreciate your patience. If you haven't heard back within 4 business days, please follow up on the advisory thread.
+
+---
+
+## Bug Bounty
+
+We do not currently operate a paid bug bounty program. We give public credit in the CHANGELOG and release notes to reporters who follow responsible disclosure (unless you prefer to remain anonymous).
+
+---
 
 ## Scope
 
-In-scope:
+### In scope
 
-- Auth bypass, privilege escalation, role/RBAC enforcement gaps.
-- Cross-tenant data exposure (any leak between tenants in a multi-tenant
-  deploy).
-- SQL/NoSQL injection, XSS, SSRF, CSRF.
-- Secrets exposure, credential leaks, unsafe defaults.
-- MCP transport bypass / agent JWT vulnerabilities.
-- Webhook signature bypass.
-- DoS that's reachable without authentication.
+- Auth bypass, privilege escalation, or RBAC enforcement gaps
+- Cross-tenant data exposure (any read/write across tenant boundaries)
+- SQL injection, XSS, SSRF, CSRF
+- Credential / secret exposure or unsafe defaults in shipped configuration
+- MCP transport bypass or agent JWT vulnerabilities
+- Webhook HMAC signature bypass
+- Unauthenticated denial-of-service reachable from the network
 
-Out of scope:
+### Out of scope
 
-- Issues requiring physical access to the server.
-- Volumetric DDoS (handled by your hosting layer).
-- Vulnerabilities in dependencies that don't affect this codebase's
-  usage of them — please report those upstream.
-- Self-XSS or social engineering.
-- Setup wizard returning `{ configured: bool }` without auth — this is
-  intentional (single bit needed for the redirect logic).
+- Vulnerabilities requiring physical server access
+- Volumetric DDoS (handled by the hosting layer)
+- Issues in upstream dependencies that don't affect this codebase — please report those to the dependency maintainer directly
+- Self-XSS or social-engineering attacks
+- The setup wizard returning `{ configured: bool }` without auth — this is intentional (single bit needed for the redirect logic)
+- Missing security headers on the development server only
 
-## Hardening defaults baked into this repo
+---
 
-A pre-public-release security audit pass closed:
+## Security Hardening in This Repo
 
-- 4 critical issues (MCP role enforcement, middleware allowlist, tenant
-  FK validation, Resend webhook signing).
-- 6 high issues (Better Auth secret, approval self-approval, invite
-  email binding, auditor role, route-level Zod validation, +1 from a
-  follow-up audit).
-- 14 medium/low issues (setup-status leak, tags entity, CORS sanity
-  check, error sanitization, inbound webhook rate limit, Redis-backed
-  rate limiter, setup race, etc.).
+A pre-release security audit closed the following issues (see [CHANGELOG.md](./CHANGELOG.md) for details):
 
-See [CHANGELOG.md](./CHANGELOG.md) for the full list.
+| Severity | Count | Examples |
+|----------|-------|---------|
+| Critical | 4 | MCP role enforcement, middleware allowlist, tenant FK validation, Resend webhook signing |
+| High | 6 | Better Auth secret enforcement, approval self-approval prevention, auditor role, route-level Zod validation |
+| Medium / Low | 14 | Setup-status information leak, CORS sanity check, error sanitization (73 catch blocks), inbound webhook rate limiting, Redis-backed rate limiter |
 
-## Required production env vars
+---
 
-The following MUST be set at runtime in production. The app refuses to
-start (or operate certain endpoints) without them:
+## Required Production Environment Variables
 
-| Var | Required for |
-|-----|--------------|
-| `DATABASE_URL` | All endpoints — Postgres connection string |
-| `JWT_SECRET` | Agent JWT signing |
-| `BETTER_AUTH_SECRET` | Human session signing — must be ≥32 chars |
-| `ADMIN_API_KEY` | Bootstrap agent provisioning |
-| `RESEND_WEBHOOK_SECRET` | `/webhooks/resend` (501s without it in prod) |
+The app refuses to start — or rejects requests — if these are missing in production:
 
-Recommended:
+| Variable | Required for |
+|----------|-------------|
+| `DATABASE_URL` | All database operations |
+| `JWT_SECRET` | Agent JWT signing and verification |
+| `BETTER_AUTH_SECRET` | Human session signing (must be ≥ 32 characters) |
+| `ADMIN_API_KEY` | Agent provisioning bootstrap endpoint |
+| `RESEND_WEBHOOK_SECRET` | `/webhooks/resend` (returns 501 without this in production) |
 
-| Var | Recommended for |
-|-----|-----------------|
-| `REDIS_URL` | Cross-instance rate-limit counters on Vercel |
-| `CORS_ORIGINS` | Comma-separated allowlist (NEVER `*` in production) |
+Recommended additional variables:
 
-## Threat model
+| Variable | Purpose |
+|----------|---------|
+| `REDIS_URL` | Cross-instance rate-limit counters (Vercel / multi-replica) |
+| `CORS_ORIGINS` | Comma-separated allowlist — **never use `*` in production** |
 
-- **Multi-tenant by default.** Every CRM record carries `tenantId`;
-  every service filters by `ctx.tenantId`. Foreign-key references are
-  validated to belong to the caller's tenant before insert.
-- **Two auth schemes coexist.** Better Auth cookies for human users
-  (web UI) and JWT bearer tokens for AI agents (API + MCP). The
-  `/api/auth/session-token` endpoint exchanges a Better Auth cookie
-  for an agent JWT scoped to the user's tenant.
-- **Outgoing webhooks are HMAC-signed** with a per-webhook secret.
-- **Inbound webhooks are tenant-scoped and rate-limited** (60/min).
-- **MCP tools are role-gated** — every tool is checked against the
-  caller's role before `execute()`. Schema modifications require
-  the `developer` role.
+---
+
+## Threat Model
+
+- **Multi-tenant by default.** Every CRM record carries `tenantId`; every service query is scoped to `ctx.tenantId`. FK references are validated to belong to the caller's tenant before any insert or update.
+- **Two auth schemes coexist.** Better Auth cookie sessions for human users (web UI) and JWT bearer tokens for AI agents (API + MCP). The `/api/auth/session-token` endpoint bridges the two.
+- **Outgoing webhooks are HMAC-SHA256 signed** with a per-webhook secret stored hashed in the DB.
+- **Inbound webhooks are tenant-scoped and rate-limited** to 60 requests/minute.
+- **MCP tools are role-gated.** Every tool checks `ctx.role` before `execute()`. Schema modifications require the `developer` role.
+- **API keys are stored as SHA-256 hashes.** The raw key is returned only once at provisioning time and never stored.
