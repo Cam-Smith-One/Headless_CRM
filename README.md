@@ -17,18 +17,20 @@
 </p>
 
 > **Want it fully managed?** Skip the setup — [get the hosted version →](https://humaie.com) _(zero ops, auto-updates)_
-
+Reach out to us via our contact page!
 ---
 
 # Why Headless?
 
-The SaaS CRM you're paying $150/month for was built for humans clicking buttons. Your AI agents don't click buttons.
+The SaaS CRM you're paying $$$/month for was built for humans clicking buttons. Your AI agents don't click buttons.
 
 They make API calls. They need tool schemas, audit trails, role-scoped access, and something that fires a webhook when a deal moves stages. They don't need a kanban board they'll never look at.
 
 **We're in the early innings of an AI-agent-first world.** If you're building a startup, running a one-person shop, or shipping products with Claude, Codex, OpenClaw, or Hermes — your CRM should be as programmable as your agents. You should be able to hand an agent a JWT and an MCP endpoint and have it managing your entire pipeline by end of day.
 
-That's what Headless CRM is. It's not a replacement for Salesforce. It's what you reach for when a Salesforce subscription costs more than your infrastructure.
+Its designed to be headless AI first, there is a basic UI if you need- that's mobile responsive,  but its bare bones!
+
+That's what Headless CRM is. It's not a replacement for Salesforce/Hubspot. It's what you reach for when a Salesforce/hubspot subscription costs more than your infrastructure.
 
 > _"The companies that win in an agent-first world won't be the ones with the best dashboards. They'll be the ones with the best APIs."_
 
