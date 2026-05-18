@@ -16,6 +16,8 @@
   <a href="https://github.com/Cam-Smith-One/Headless_CRM/issues">Issues</a>
 </p>
 
+> ⚠️ **Early Beta:** Under active development. Expect a lot of rough edges.
+
 > **Want it fully managed?** Skip the setup — [get the hosted version →](https://humaie.com) _(zero ops, auto-updates)_
 Reach out to us via our contact page!
 ---
