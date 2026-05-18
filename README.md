@@ -119,12 +119,12 @@ Install pre-built agent workflows directly from the [Journey Kits registry](http
 
 ```bash
 # Connect your agent to Headless CRM via MCP (start here)
-npx journey install onezeroten/headless-crm-connect
+npx journey install humaie/headless-crm-connect
 
 # Add workflow kits
-npx journey install onezeroten/pipeline-brief        # daily pipeline digest
-npx journey install onezeroten/lead-qualification    # research + score leads
-npx journey install onezeroten/contact-enrichment    # fill missing contact data
+npx journey install humaie/pipeline-brief        # daily pipeline digest
+npx journey install humaie/lead-qualification    # research + score leads
+npx journey install humaie/contact-enrichment    # fill missing contact data
 ```
 
 Works with Claude Code, Cursor, Codex, OpenClaw, and any agent that supports Journey Kits.

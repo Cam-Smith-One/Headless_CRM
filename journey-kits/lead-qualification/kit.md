@@ -4,10 +4,10 @@ An agent workflow that picks up new or unscored contacts from Headless CRM, rese
 
 Requires the `headless-crm-connect` kit to be installed first.
 
-**Owner:** onezeroten  
+**Owner:** humaie  
 **Version:** 1.0.0  
 **License:** AGPL-3.0  
-**Dependency:** onezeroten/headless-crm-connect
+**Dependency:** humaie/headless-crm-connect
 
 ---
 

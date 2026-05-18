@@ -2,7 +2,7 @@
 
 Give any AI agent a full CRM in under 60 seconds. This kit wires your agent into a running Headless CRM instance via MCP, instantly unlocking 29 typed CRM tools: query contacts, log activities, advance deals, request human approvals, and more — without writing a single line of integration code.
 
-**Owner:** onezeroten  
+**Owner:** humaie  
 **Version:** 1.0.0  
 **License:** AGPL-3.0  
 **Targets:** claude-code, cursor, codex, cline, windsurf, openclaw, generic
