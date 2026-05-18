@@ -24,7 +24,7 @@ Open a private security advisory directly on GitHub — only you and the maintai
 
 ### Alternative: Email
 
-If you cannot use GitHub advisories, email **cameronsmith@smithand.co** with the subject line `[SECURITY] Headless CRM — <brief description>`.
+If you cannot use GitHub advisories, email **support@onezeroten.io** with the subject line `[SECURITY] Headless CRM — <brief description>`.
 
 ---
 
