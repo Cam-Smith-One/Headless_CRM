@@ -75,13 +75,25 @@ if [ ! -f ".env" ]; then
     error ".env.example not found. Cannot create .env."
   fi
 else
-  success ".env already exists, skipping copy"
-  # Check if DATABASE_URL is already pointing at SQLite
+  success ".env already exists"
+  # Check if DATABASE_URL is already pointing at SQLite — if not, fix it automatically.
   if grep -q "^DATABASE_URL=file:" .env 2>/dev/null; then
     success "DATABASE_URL already configured for SQLite"
   else
-    warn "Your .env DATABASE_URL does not look like a SQLite path."
-    warn "For SQLite mode, set:  DATABASE_URL=file:./headless-crm.db"
+    SQLITE_PATH="$REPO_ROOT/headless-crm.db"
+    # Replace any existing DATABASE_URL line (Postgres or otherwise) with the SQLite path.
+    if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
+      # sed -i works differently on macOS (-i '') vs Linux (-i). Use a temp file instead.
+      TMPFILE=$(mktemp)
+      grep -v "^DATABASE_URL=" .env > "$TMPFILE"
+      echo "DATABASE_URL=file:$SQLITE_PATH" >> "$TMPFILE"
+      mv "$TMPFILE" .env
+      success "DATABASE_URL updated to SQLite path (file:$SQLITE_PATH)"
+    else
+      echo "DATABASE_URL=file:$SQLITE_PATH" >> .env
+      success "DATABASE_URL added (file:$SQLITE_PATH)"
+    fi
+    warn "If you need other env vars (JWT_SECRET, BETTER_AUTH_SECRET, etc.), review .env."
   fi
 fi
 
