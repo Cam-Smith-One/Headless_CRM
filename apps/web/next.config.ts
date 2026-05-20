@@ -23,8 +23,15 @@ try {
   // No root .env (e.g. Vercel deploy with platform env vars) — that's fine.
 }
 
+// `output: "standalone"` is required for Docker self-hosting but breaks
+// Next.js 16 + Turbopack + middleware on Vercel (missing middleware.js.nft.json
+// during the framework adapter's post-build step → ENOENT, deploy fails).
+// Vercel sets the VERCEL env var automatically and handles output natively,
+// so we only enable standalone outside Vercel.
+const isVercel = !!process.env.VERCEL;
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: isVercel ? undefined : "standalone",
   // Hide the Next.js dev-mode indicator (the "N" overlay in the bottom-left)
   devIndicators: false,
   // Anchor workspace root to repo root so Next.js doesn't walk up into ~/
