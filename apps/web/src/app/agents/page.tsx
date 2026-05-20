@@ -51,11 +51,19 @@ export default function AgentsPage() {
   }
 
   function getMcpConfig(apiKey: string) {
+    // If NEXT_PUBLIC_API_URL is explicitly set (e.g. Docker dev with a separate
+    // API process on :3001), use it with the /mcp path. Otherwise derive the
+    // origin from the current page — this is the Vercel / single-deployment
+    // case where /api/mcp is served same-origin via the Next.js Hono proxy.
+    const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const mcpUrl = explicitApiUrl
+      ? `${explicitApiUrl}/mcp`
+      : `${typeof window !== "undefined" ? window.location.origin : ""}/api/mcp`;
     return JSON.stringify(
       {
         mcpServers: {
           "headless-crm": {
-            url: `${API_URL}/mcp`,
+            url: mcpUrl,
             headers: {
               Authorization: `Bearer ${apiKey}`,
             },
