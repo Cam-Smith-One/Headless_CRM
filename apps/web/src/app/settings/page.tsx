@@ -13,8 +13,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 interface SetupStatus {
   configured: boolean;
-  agentCount: number;
-  adminKeySet: boolean;
 }
 
 interface ProvisionedAgent {
@@ -175,12 +173,12 @@ export default function SettingsPage() {
             <Card className="bg-card/50">
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${setupStatus.adminKeySet ? "bg-green-500" : "bg-yellow-500"}`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${setupStatus.configured ? "bg-green-500" : "bg-yellow-500"}`} />
                   <span className="text-sm">
-                    Admin key: {setupStatus.adminKeySet ? "Configured" : "Not configured"}
+                    Admin key: {setupStatus.configured ? "Configured" : "Not configured"}
                   </span>
                 </div>
-                {setupStatus.adminKeySet && adminKey && (
+                {setupStatus.configured && adminKey && (
                   <div className="flex items-center gap-2">
                     <code className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
                       {maskKey(adminKey)}
@@ -188,9 +186,9 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${setupStatus.agentCount > 0 ? "bg-green-500" : "bg-zinc-500"}`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${agents.length > 0 ? "bg-green-500" : "bg-zinc-500"}`} />
                   <span className="text-sm">
-                    Provisioned agents: {setupStatus.agentCount}
+                    Provisioned agents: {agents.length}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -211,7 +209,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                 )}
-                {setupStatus.agentCount === 0 && setupStatus.adminKeySet && (
+                {agents.length === 0 && setupStatus.configured && !agentsLoading && (
                   <p className="text-xs text-yellow-400 pt-1">
                     No agents provisioned yet. Use Quick Provision below to create your first agent.
                   </p>
