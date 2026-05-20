@@ -38,9 +38,23 @@ export default function SettingsPage() {
   const [agents, setAgents] = useState<ProvisionedAgent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
 
-  // Quick provision
+  // Quick provision — default the tenant ID to the current user's tenant so
+  // newly-provisioned agents show up in the agents list (GET /api/agents
+  // filters by the caller's tenant). Power users can still override.
+  const currentTenantId = (() => {
+    if (!token) return "";
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return typeof payload.tenantId === "string" ? payload.tenantId : "";
+    } catch {
+      return "";
+    }
+  })();
   const [provisionName, setProvisionName] = useState("");
   const [provisionTenant, setProvisionTenant] = useState("");
+  useEffect(() => {
+    if (currentTenantId && !provisionTenant) setProvisionTenant(currentTenantId);
+  }, [currentTenantId, provisionTenant]);
   const [provisioning, setProvisioning] = useState(false);
   const [provisionError, setProvisionError] = useState("");
   const [provisionResult, setProvisionResult] = useState<{ agentId: string; apiKey: string } | null>(null);
@@ -253,8 +267,11 @@ export default function SettingsPage() {
                     className="mt-1 text-xs font-mono"
                     value={provisionTenant}
                     onChange={(e) => setProvisionTenant(e.target.value)}
-                    placeholder="tenant_default"
+                    placeholder={currentTenantId || "tenant_id"}
                   />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Defaults to your current tenant. Change only if you intend to provision an agent in another tenant&apos;s scope.
+                  </p>
                 </div>
               </div>
               <Button
