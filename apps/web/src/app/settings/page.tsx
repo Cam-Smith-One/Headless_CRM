@@ -13,8 +13,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 interface SetupStatus {
   configured: boolean;
-  agentCount: number;
-  adminKeySet: boolean;
 }
 
 interface ProvisionedAgent {
@@ -40,9 +38,23 @@ export default function SettingsPage() {
   const [agents, setAgents] = useState<ProvisionedAgent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
 
-  // Quick provision
+  // Quick provision — default the tenant ID to the current user's tenant so
+  // newly-provisioned agents show up in the agents list (GET /api/agents
+  // filters by the caller's tenant). Power users can still override.
+  const currentTenantId = (() => {
+    if (!token) return "";
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return typeof payload.tenantId === "string" ? payload.tenantId : "";
+    } catch {
+      return "";
+    }
+  })();
   const [provisionName, setProvisionName] = useState("");
   const [provisionTenant, setProvisionTenant] = useState("");
+  useEffect(() => {
+    if (currentTenantId && !provisionTenant) setProvisionTenant(currentTenantId);
+  }, [currentTenantId, provisionTenant]);
   const [provisioning, setProvisioning] = useState(false);
   const [provisionError, setProvisionError] = useState("");
   const [provisionResult, setProvisionResult] = useState<{ agentId: string; apiKey: string } | null>(null);
@@ -139,11 +151,19 @@ export default function SettingsPage() {
   }
 
   function getMcpConfig(apiKey: string) {
+    // If NEXT_PUBLIC_API_URL is explicitly set (e.g. Docker dev with a separate
+    // API process on :3001), use it with the /mcp path. Otherwise derive the
+    // origin from the current page — this is the Vercel / single-deployment
+    // case where /api/mcp is served same-origin via the Next.js Hono proxy.
+    const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const mcpUrl = explicitApiUrl
+      ? `${explicitApiUrl}/mcp`
+      : `${typeof window !== "undefined" ? window.location.origin : ""}/api/mcp`;
     return JSON.stringify(
       {
         mcpServers: {
           "headless-crm": {
-            url: `${API_URL}/mcp`,
+            url: mcpUrl,
             headers: {
               Authorization: `Bearer ${apiKey}`,
             },
@@ -175,12 +195,12 @@ export default function SettingsPage() {
             <Card className="bg-card/50">
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${setupStatus.adminKeySet ? "bg-green-500" : "bg-yellow-500"}`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${setupStatus.configured ? "bg-green-500" : "bg-yellow-500"}`} />
                   <span className="text-sm">
-                    Admin key: {setupStatus.adminKeySet ? "Configured" : "Not configured"}
+                    Admin key: {setupStatus.configured ? "Configured" : "Not configured"}
                   </span>
                 </div>
-                {setupStatus.adminKeySet && adminKey && (
+                {setupStatus.configured && adminKey && (
                   <div className="flex items-center gap-2">
                     <code className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
                       {maskKey(adminKey)}
@@ -188,9 +208,9 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${setupStatus.agentCount > 0 ? "bg-green-500" : "bg-zinc-500"}`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${agents.length > 0 ? "bg-green-500" : "bg-zinc-500"}`} />
                   <span className="text-sm">
-                    Provisioned agents: {setupStatus.agentCount}
+                    Provisioned agents: {agents.length}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -211,7 +231,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                 )}
-                {setupStatus.agentCount === 0 && setupStatus.adminKeySet && (
+                {agents.length === 0 && setupStatus.configured && !agentsLoading && (
                   <p className="text-xs text-yellow-400 pt-1">
                     No agents provisioned yet. Use Quick Provision below to create your first agent.
                   </p>
@@ -247,8 +267,11 @@ export default function SettingsPage() {
                     className="mt-1 text-xs font-mono"
                     value={provisionTenant}
                     onChange={(e) => setProvisionTenant(e.target.value)}
-                    placeholder="tenant_default"
+                    placeholder={currentTenantId || "tenant_id"}
                   />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Defaults to your current tenant. Change only if you intend to provision an agent in another tenant&apos;s scope.
+                  </p>
                 </div>
               </div>
               <Button
