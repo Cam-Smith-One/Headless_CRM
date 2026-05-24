@@ -290,7 +290,7 @@ export function defineTools(deps: ToolDeps) {
       description: "Create a new record. Contacts: {firstName, lastName, email, phone, title, companyId}. Companies: {name, domain, industry, size}. Deals: {name, value, currency, stage, pipelineId, companyId}. Cases: {title, description, status, priority, category, contactId, companyId, dealId}. You can also pass 'name' or 'fullName' for contacts — it will be split into firstName/lastName automatically. Include 'customFields' object to set tenant-defined custom fields (use crm_list_fields to discover available fields).",
       inputSchema: z.object({
         collection: z.enum(["contacts", "companies", "deals", "cases"]),
-        data: z.record(z.unknown()).optional(),
+        data: z.record(z.string(), z.unknown()).optional(),
       }).passthrough(),
       annotations: { readOnly: false },
       async execute(input: any) {
@@ -334,7 +334,7 @@ export function defineTools(deps: ToolDeps) {
       inputSchema: z.object({
         collection: z.enum(["contacts", "companies", "deals", "cases"]),
         id: z.string(),
-        data: z.record(z.unknown()).optional(),
+        data: z.record(z.string(), z.unknown()).optional(),
       }).passthrough(),
       annotations: { readOnly: false },
       async execute(input: any) {
@@ -368,7 +368,7 @@ export function defineTools(deps: ToolDeps) {
         contactId: z.string().optional(),
         companyId: z.string().optional(),
         dealId: z.string().optional(),
-        metadata: z.record(z.unknown()).optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
       }),
       annotations: { readOnly: false },
       async execute(input: any) {
@@ -504,7 +504,7 @@ export function defineTools(deps: ToolDeps) {
         updates: z.array(
           z.object({
             id: z.string(),
-            data: z.record(z.unknown()),
+            data: z.record(z.string(), z.unknown()),
           })
         ),
       }),
@@ -589,7 +589,7 @@ export function defineTools(deps: ToolDeps) {
         "Bulk-import records into a collection. Each record is created individually so events are emitted. Returns counts of imported/failed and per-record error details.",
       inputSchema: z.object({
         collection: z.enum(["contacts", "companies", "deals", "cases"]),
-        records: z.array(z.record(z.unknown())),
+        records: z.array(z.record(z.string(), z.unknown())),
       }),
       annotations: { readOnly: false },
       async execute(input: any) {
@@ -712,7 +712,7 @@ export function defineTools(deps: ToolDeps) {
         type: z.enum(["agent_provision", "destructive_action", "bulk_operation", "escalation"]),
         title: z.string(),
         description: z.string().optional(),
-        metadata: z.record(z.unknown()).optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
       }),
       annotations: { readOnly: false },
       async execute(input: any) {
