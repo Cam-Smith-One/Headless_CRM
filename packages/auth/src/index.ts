@@ -43,6 +43,16 @@ export function createAuthService(db: any) {
         role?: "reader" | "operator" | "developer" | "auditor";
         ownerUserId?: string;
         metadata?: Record<string, unknown>;
+        /**
+         * Skip the pending-approval flow for developer agents. The caller
+         * (e.g. the admin-key bootstrap path) is asserting that the request
+         * is already authorised, so the agent is created active and no
+         * approval record is generated. Without this, the very first
+         * developer agent in a tenant is unapprovable: only developers can
+         * approve, self-approval is blocked, and there are no other
+         * developers — a permanent deadlock.
+         */
+        autoApprove?: boolean;
       }
     ) {
       const id = `agent_${nanoid()}`;
@@ -59,6 +69,7 @@ export function createAuthService(db: any) {
       }
 
       const isDeveloper = (input.role ?? "operator") === "developer";
+      const requiresApproval = isDeveloper && !input.autoApprove;
 
       const [agent] = await db
         .insert(agents)
@@ -68,16 +79,16 @@ export function createAuthService(db: any) {
           name: input.name,
           type: input.type ?? "autonomous",
           role: input.role ?? "operator",
-          status: isDeveloper ? "pending_approval" : "active",
+          status: requiresApproval ? "pending_approval" : "active",
           ownerUserId: input.ownerUserId,
           apiKey: hashApiKey(apiKey),
           metadata: input.metadata ?? {},
         })
         .returning();
 
-      // If developer role, create a pending approval request
+      // If developer role and no auto-approve, create a pending approval request
       let approval = null;
-      if (isDeveloper) {
+      if (requiresApproval) {
         const approvalId = nanoid();
         [approval] = await db
           .insert(approvals)
