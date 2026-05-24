@@ -14,7 +14,7 @@ export const createContactSchema = z.object({
   title: z.string().optional(),
   companyId: z.string().optional(),
   statusCode: z.string().optional(),
-  customFields: z.record(z.unknown()).optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateContactSchema = createContactSchema.partial();

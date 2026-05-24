@@ -14,7 +14,7 @@ export const createDealSchema = z.object({
   closeDate: z.string().datetime().optional(),
   ownerAgentId: z.string().optional(),
   statusCode: z.string().optional(),
-  customFields: z.record(z.unknown()).optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateDealSchema = createDealSchema.partial();

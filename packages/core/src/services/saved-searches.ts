@@ -7,12 +7,12 @@ import type { CrmContext, EventEmitter } from "../types";
 export const createSavedSearchSchema = z.object({
   name: z.string().min(1).max(200),
   collection: z.enum(["contacts", "companies", "deals", "cases", "activities"]),
-  filters: z.record(z.unknown()).default({}),
+  filters: z.record(z.string(), z.unknown()).default({}),
 }).strict();
 
 export const updateSavedSearchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  filters: z.record(z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
 }).strict();
 
 export type CreateSavedSearchInput = z.infer<typeof createSavedSearchSchema>;

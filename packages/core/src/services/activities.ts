@@ -12,7 +12,7 @@ export const createActivitySchema = z.object({
   contactId: z.string().optional(),
   companyId: z.string().optional(),
   dealId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   occurredAt: z.string().datetime().optional(),
 });
 

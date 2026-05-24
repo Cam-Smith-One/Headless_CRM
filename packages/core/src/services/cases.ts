@@ -17,7 +17,7 @@ export const createCaseSchema = z.object({
   assignedAgentId: z.string().optional(),
   dueAt: z.string().datetime().optional(),
   slaHours: z.number().int().positive().optional(),
-  customFields: z.record(z.unknown()).optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateCaseSchema = createCaseSchema.partial();
