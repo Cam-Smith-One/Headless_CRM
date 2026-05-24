@@ -1,3 +1,5 @@
+import { createRequire } from "module";
+
 export interface CrmEventPayload {
   tenantId: string;
   eventType: string;
@@ -86,10 +88,16 @@ function createInMemoryEventBus() {
 function createRedisEventBus(redisUrl: string) {
   let _redis: any = null;
 
+  // Use createRequire so the optional ioredis dependency can be loaded lazily
+  // from an ESM package ("type": "module") under TypeScript 5+ and 6+, without
+  // depending on the bare `require` global (which TS 6 / @types/node 25+ do not
+  // expose to ESM modules).
+  const nodeRequire = createRequire(import.meta.url);
+
   function getRedis() {
     if (!_redis) {
       try {
-        const Redis = require("ioredis");
+        const Redis = nodeRequire("ioredis");
         _redis = new Redis(redisUrl);
       } catch {
         throw new Error("ioredis is not installed. Install it with: npm install ioredis");

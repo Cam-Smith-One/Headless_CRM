@@ -8,7 +8,7 @@ export const createApprovalSchema = z.object({
   type: z.enum(["agent_provision", "destructive_action", "bulk_operation", "escalation"]),
   title: z.string().min(1),
   description: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 
