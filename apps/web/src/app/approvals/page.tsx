@@ -44,6 +44,7 @@ export default function ApprovalsPage() {
   const [reviewTarget, setReviewTarget] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   function fetchApprovals() {
     apiFetch<any[]>("/api/approvals", { token })
@@ -71,6 +72,7 @@ export default function ApprovalsPage() {
   async function handleReview() {
     if (!reviewTarget) return;
     setSubmitting(true);
+    setReviewError("");
     try {
       await apiPost(`/api/approvals/${reviewTarget.id}/${reviewTarget.action}`, {
         reviewNote: reviewNote || undefined,
@@ -78,8 +80,13 @@ export default function ApprovalsPage() {
       setReviewTarget(null);
       setReviewNote("");
       fetchApprovals();
-    } catch {
-      // ignore
+    } catch (e: any) {
+      // Surface the real error (most commonly: 403 when the caller lacks the
+      // `developer` role, or "self-approval is not allowed" when the same
+      // agent that requested the approval is trying to resolve it). The
+      // dialog stays open so the user can read the reason.
+      const msg = typeof e?.message === "string" ? e.message : "Failed to submit decision.";
+      setReviewError(msg.replace(/^[A-Z]+ \/api\/approvals\/[^ ]+ \d+: /, ""));
     } finally {
       setSubmitting(false);
     }
@@ -135,14 +142,14 @@ export default function ApprovalsPage() {
                           size="sm"
                           variant="secondary"
                           className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                          onClick={() => { setReviewTarget({ id: a.id, action: "reject" }); setReviewNote(""); }}
+                          onClick={() => { setReviewTarget({ id: a.id, action: "reject" }); setReviewNote(""); setReviewError(""); }}
                         >
                           Reject
                         </Button>
                         <Button
                           size="sm"
                           className="bg-green-600 hover:bg-green-700 text-white"
-                          onClick={() => { setReviewTarget({ id: a.id, action: "approve" }); setReviewNote(""); }}
+                          onClick={() => { setReviewTarget({ id: a.id, action: "approve" }); setReviewNote(""); setReviewError(""); }}
                         >
                           Approve
                         </Button>
@@ -223,6 +230,11 @@ export default function ApprovalsPage() {
                 onChange={(e) => setReviewNote(e.target.value)}
               />
             </div>
+            {reviewError && (
+              <p className="mt-3 text-xs text-red-400" role="alert">
+                {reviewError}
+              </p>
+            )}
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="secondary" size="sm" onClick={() => setReviewTarget(null)}>Cancel</Button>
               <Button
