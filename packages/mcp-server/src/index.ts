@@ -41,10 +41,11 @@ export function createMCPServer(deps: ToolDeps) {
   // Register all tools
   for (const [name, tool] of Object.entries(tools)) {
     const requiredAction = actionForTool(name, (tool as any).annotations);
+    const inputShape = tool.inputSchema.shape as any;
     server.tool(
       name,
       tool.description,
-      tool.inputSchema.shape,
+      inputShape,
       async (args: any) => {
         // Role gate: reject before executing if the caller lacks permission.
         if (!allowedActions.has(requiredAction)) {

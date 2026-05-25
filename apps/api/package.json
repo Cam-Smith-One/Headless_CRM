@@ -17,9 +17,9 @@
     "@headless-crm/auth": "*",
     "@headless-crm/events": "*",
     "@headless-crm/mcp-server": "*",
-    "hono": "^4.7.0",
-    "@hono/node-server": "^1.13.0",
-    "zod": "^3.24.0"
+    "hono": "^4.12.22",
+    "@hono/node-server": "^2.0.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "tsx": "^4.22.3",

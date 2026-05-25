@@ -21,10 +21,10 @@
     "migrate:sqlite": "node --env-file-if-exists=../../.env ../../node_modules/drizzle-kit/bin.cjs migrate --config=drizzle-sqlite.config.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.39.0",
-    "@neondatabase/serverless": "^0.10.0",
-    "postgres": "^3.4.0",
-    "nanoid": "^5.0.0"
+    "drizzle-orm": "^0.45.2",
+    "@neondatabase/serverless": "^1.1.0",
+    "postgres": "^3.4.9",
+    "nanoid": "^5.1.11"
   },
   "optionalDependencies": {
     "better-sqlite3": "^12.9.0"

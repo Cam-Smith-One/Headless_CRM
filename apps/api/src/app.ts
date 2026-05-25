@@ -34,7 +34,7 @@ const provisionAgentSchema = z.object({
   type: z.enum(["autonomous", "supervised", "scheduled", "reactive"]).optional(),
   role: z.enum(["reader", "operator", "developer", "auditor"]),
   ownerUserId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   collections: z.array(z.string()).optional(),
 }).strict();
 
@@ -46,13 +46,13 @@ const adminProvisionAgentSchema = z.object({
   type: z.enum(["autonomous", "supervised", "scheduled", "reactive"]).optional(),
   role: z.enum(["reader", "operator", "developer", "auditor"]).optional(),
   ownerUserId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }).strict();
 
 const inboundWebhookSchema = z.object({
   source: z.string().min(1).max(200),
   eventType: z.string().min(1).max(200),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 }).strict();
 
 const approvalReviewSchema = z.object({
@@ -504,7 +504,7 @@ export function createApp() {
 
   api.post("/contacts/:id/enrich", requireWrite, async (c) => {
     try {
-      const body = await parseBody(c, z.object({ data: z.record(z.unknown()) }).strict());
+      const body = await parseBody(c, z.object({ data: z.record(z.string(), z.unknown()) }).strict());
       if (body instanceof Response) return body;
       const record = await getCRM().contacts.enrich(c.get("ctx"), c.req.param("id"), body.data);
       return c.json(record);
@@ -564,7 +564,7 @@ export function createApp() {
 
   api.post("/companies/:id/enrich", requireWrite, async (c) => {
     try {
-      const body = await parseBody(c, z.object({ data: z.record(z.unknown()) }).strict());
+      const body = await parseBody(c, z.object({ data: z.record(z.string(), z.unknown()) }).strict());
       if (body instanceof Response) return body;
       const record = await getCRM().companies.enrich(c.get("ctx"), c.req.param("id"), body.data);
       return c.json(record);
@@ -1453,7 +1453,7 @@ export function createApp() {
         type: z.enum(["agent_provision", "destructive_action", "bulk_operation", "escalation"]),
         title: z.string().min(1).max(200),
         description: z.string().max(2000).optional(),
-        metadata: z.record(z.unknown()).optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
         expiresAt: z.string().datetime().optional(),
       }).strict());
       if (body instanceof Response) return body;

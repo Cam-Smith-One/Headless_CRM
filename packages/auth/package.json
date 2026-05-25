@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@headless-crm/db": "*",
-    "nanoid": "^5.0.0",
-    "jose": "^6.0.0"
+    "nanoid": "^5.1.11",
+    "jose": "^6.2.3"
   },
   "devDependencies": {
     "typescript": "^6.0.3"

@@ -19,12 +19,12 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@headless-crm/auth": "*",
     "@headless-crm/core": "*",
     "@headless-crm/db": "*",
-    "@headless-crm/auth": "*",
     "@headless-crm/events": "*",
-    "@modelcontextprotocol/sdk": "^1.10.0",
-    "zod": "^3.24.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
