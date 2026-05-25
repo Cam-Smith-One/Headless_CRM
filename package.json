@@ -21,6 +21,7 @@
     "start": "npx tsx packages/cli/src/index.ts"
   },
   "devDependencies": {
+    "eslint": "^9.39.4",
     "turbo": "^2.9.14",
     "typescript": "^6.0.3"
   },
