@@ -386,13 +386,12 @@ export function createApp() {
       role: parsed.role,
       ownerUserId: parsed.ownerUserId,
       metadata: parsed.metadata,
+      // Admin-key access already gates this action. Skip the pending-approval
+      // flow for developer agents — otherwise the first developer in a fresh
+      // tenant is unapprovable (only developers can approve, self-approval is
+      // blocked, no other developers exist → deadlock).
+      autoApprove: true,
     });
-    // Admin-provisioned agents are always active regardless of role.
-    // (Developer agents otherwise start as pending_approval for self-service flows.)
-    if (result.agent.status !== "active") {
-      await getAuth().activateAgent(parsed.tenantId, result.agent.id);
-      result.agent.status = "active";
-    }
     return c.json(result, 201);
   });
 
