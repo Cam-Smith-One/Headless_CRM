@@ -14,7 +14,7 @@
     "build": "tsc",
     "generate": "node --env-file-if-exists=../../.env ../../node_modules/drizzle-kit/bin.cjs generate --config=drizzle.config.ts",
     "migrate": "node --env-file-if-exists=../../.env ./scripts/migrate-postgres.mjs",
-    "seed": "tsx --env-file=../../.env src/seed.ts",
+    "seed": "node --env-file=../../.env --import tsx src/seed.ts",
     "generate:sqlite": "node --env-file-if-exists=../../.env ../../node_modules/drizzle-kit/bin.cjs generate --config=drizzle-sqlite.config.ts",
     "migrate:sqlite": "node --env-file-if-exists=../../.env ../../node_modules/drizzle-kit/bin.cjs migrate --config=drizzle-sqlite.config.ts"
   },

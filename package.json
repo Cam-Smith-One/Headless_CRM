@@ -14,7 +14,7 @@
     "oss:check": "node scripts/check-open-source-readiness.mjs",
     "test": "turbo test",
     "test:e2e": "playwright test",
-    "test:selfhost": "node scripts/selfhost-smoke.mjs",
+    "test:selfhost": "node --env-file=.env scripts/selfhost-smoke.mjs",
     "typecheck": "turbo build",
     "db:generate": "npm run generate -w packages/db",
     "db:migrate": "npm run migrate -w packages/db",

@@ -16,6 +16,7 @@ npm run selfhost:sqlite
 ```
 
 Open `http://localhost:3000/setup`, create the first admin user, then use **Agents** to provision agent keys.
+If you run setup again against an already seeded database, the seed step will detect the demo workspace data and skip duplicate inserts.
 
 The SQLite quickstart now defaults uploads to:
 
@@ -92,6 +93,7 @@ The API exposes:
 
 - `GET /health` and `GET /api/health`: process is alive.
 - `GET /ready` and `GET /api/ready`: process can query the configured database.
+  These readiness routes are intentionally public so Docker, local smoke tests, and deployment health checks do not need an agent token.
 
 ## Smoke and E2E tests
 
@@ -99,6 +101,12 @@ With the API running and `.env` loaded:
 
 ```bash
 npm run test:selfhost
+```
+
+If you run the script directly instead of through npm, load `.env` first:
+
+```bash
+node --env-file=.env scripts/selfhost-smoke.mjs
 ```
 
 For browser E2E:

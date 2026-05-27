@@ -14,6 +14,16 @@ npm run selfhost:check
 
 That catches weak secrets, missing database files, and dangerous CORS settings before you spend time debugging the wrong thing.
 
+## SQLite setup fails while running the seed step
+
+The seed script runs through `node --import tsx` so it does not need the `tsx` CLI IPC server. If you are on an older checkout and see an error like `listen EPERM ... tsx-*.pipe`, update to the latest version or run:
+
+```bash
+node --env-file=../../.env --import tsx src/seed.ts
+```
+
+from `packages/db`.
+
 ## Login works in dev, but self-hosted auth says "Invalid origin"
 
 Make sure these values line up with the host and ports you are actually using:
@@ -35,7 +45,7 @@ API_PORT=3201 WEB_PORT=3200 npm run selfhost:sqlite
 Check:
 
 1. the browser is using same-origin `/api/*` requests
-2. the API is reachable at `/api/ready`
+2. the API is reachable at `/api/ready` without an agent token
 3. the session is still valid after any secret rotation
 
 If secrets were rotated, sign out and sign back in.

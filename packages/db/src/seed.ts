@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { count, eq } from "drizzle-orm";
 
 // Detect which DB backend to use based on DATABASE_URL.
 // `file:./foo.db` → SQLite via better-sqlite3.
@@ -47,6 +48,16 @@ async function seed() {
     name: "Demo Workspace",
     slug: "demo",
   }).onConflictDoNothing();
+
+  const [{ count: existingDemoCompanies }] = await db
+    .select({ count: count() })
+    .from(schema.companies)
+    .where(eq(schema.companies.tenantId, tenantId));
+  if (Number(existingDemoCompanies) > 0) {
+    console.log("Demo data already present; skipping seed inserts.");
+    await close();
+    return;
+  }
 
   // Agents
   const agentIds = {

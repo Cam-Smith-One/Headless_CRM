@@ -288,7 +288,7 @@ export function defineTools(deps: ToolDeps) {
     },
 
     crm_create: {
-      description: "Create a new record. Contacts: {firstName, lastName, email, phone, title, companyId}. Companies: {name, domain, industry, size}. Deals: {name, value, currency, stage, pipelineId, companyId}. Cases: {title, description, status, priority, category, contactId, companyId, dealId}. You can also pass 'name' or 'fullName' for contacts — it will be split into firstName/lastName automatically. Include 'customFields' object to set tenant-defined custom fields (use crm_list_fields to discover available fields).",
+      description: "Create a new record. Required fields: contacts require firstName and lastName; companies require name; deals require name, stage, and pipelineId; cases require title and contactId. Contacts also accept {email, phone, title, companyId}. Companies also accept {domain, industry, size}. Deals also accept {value, currency, companyId}. Cases also accept {description, status, priority, category, companyId, dealId}. You can also pass 'name' or 'fullName' for contacts — it will be split into firstName/lastName automatically. Include 'customFields' object to set tenant-defined custom fields (use crm_list_fields to discover available fields).",
       inputSchema: z.object({
         collection: z.enum(["contacts", "companies", "deals", "cases"]),
         data: z.record(z.unknown()).optional(),

@@ -83,6 +83,7 @@ npm run dev                 # API on :3001, dashboard on :3000
 
 - For production-like local runs, see [`SELF_HOST_LOCAL_DEPLOYMENT.md`](./SELF_HOST_LOCAL_DEPLOYMENT.md).
 - Run `npm run selfhost:check` before handing a local deploy to a team or agent.
+- Re-running `setup:sqlite` is safe: the seed step skips demo inserts when the demo workspace already has companies.
 - Run `npm run sqlite:backup` before upgrades or heavy agent tests.
 - Run `npm run postgres:backup` before Postgres upgrades or risky schema work.
 - Run `npm run test:selfhost` for an API/agent smoke test, or `npm run test:e2e` for browser E2E.
@@ -318,6 +319,15 @@ URL:   https://your-domain.com/mcp   (or http://localhost:3001/mcp)
 Auth:  Bearer <agent-jwt-token>
 ```
 
+When using the dashboard origin as the MCP entrypoint, use `http://localhost:3000/api/mcp`; discovery is available at `/.well-known/mcp.json`.
+
+For `crm_create`, agents should include the collection-specific required fields:
+
+- `contacts`: `firstName`, `lastName`
+- `companies`: `name`
+- `deals`: `name`, `stage`, `pipelineId`
+- `cases`: `title`, `contactId`
+
 ### Connecting via stdio (Claude Desktop)
 
 ```json
@@ -344,7 +354,7 @@ Auth:  Bearer <agent-jwt-token>
 curl -X POST http://localhost:3001/api/agents/provision \
   -H "X-Admin-Key: <your-admin-key>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "my-agent", "role": "operator"}'
+  -d '{"tenantId": "tenant_demo", "name": "my-agent", "role": "operator"}'
 ```
 
 **Via Settings UI:** Navigate to Settings in the dashboard to provision agents with auto-generated API keys.
