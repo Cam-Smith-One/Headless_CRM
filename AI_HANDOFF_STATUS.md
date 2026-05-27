@@ -16,6 +16,57 @@ This is not just a docs claim. It was re-run against a fresh Postgres volume wit
 
 ## What was recently completed
 
+### 2026-05-27 public-git SQLite/MCP follow-up
+
+Branch pushed: `codex/fix-sqlite-self-host-e2e`
+
+Latest commit pushed: `911301d Fix SQLite self-host setup docs and smoke path`
+
+PR compare URL: https://github.com/Cam-Smith-One/Headless_CRM/compare/main...codex/fix-sqlite-self-host-e2e?expand=1
+
+GitHub PR creation status: branch is pushed, but the local `gh` token for `Cam-Smith-One` was invalid, so the PR must be opened from the compare URL or after re-authenticating `gh`.
+
+What changed in that public-git commit:
+
+- `npm run test:selfhost` now loads `.env` automatically.
+- `packages/db` seed now runs via `node --import tsx`, avoiding the `tsx` CLI IPC pipe failure seen in sandboxed local agent environments.
+- Demo seeding is now idempotent: if the demo workspace already has companies, the seed step skips inserts instead of duplicating records.
+- MCP `crm_create` tool docs now explicitly call out required fields, including `pipelineId` for deals and `contactId` for cases.
+- README examples now include the required `tenantId` for admin agent provisioning.
+- Self-host and troubleshooting docs now document public readiness checks and the SQLite seed fallback.
+
+Verification run for the pushed commit:
+
+```bash
+npm run build -w @headless-crm/api
+npm run build -w packages/db
+npm run build -w @headless-crm/mcp-server
+npm run seed -w packages/db
+curl -i http://127.0.0.1:3001/ready
+curl -i http://127.0.0.1:3001/api/ready
+npm run test:selfhost
+```
+
+Observed verification result:
+
+- `/ready` and `/api/ready` returned `200` with `{"status":"ready","database":"sqlite"}`.
+- `npm run test:selfhost` passed end to end when run outside the local sandbox so Node fetch could connect to localhost.
+- The first sandboxed `npm run test:selfhost` attempt failed with local `connect EPERM` to `localhost:3001`; this was an environment restriction, not an app failure.
+
+Important git hygiene note:
+
+The branch still has unrelated local, uncommitted worktree changes in these paths, and they were intentionally not included in commit `911301d`:
+
+- `apps/api/src/app.ts`
+- `apps/web/src/app/cases/page.tsx`
+- `apps/web/src/app/deals/page.tsx`
+- `apps/web/src/lib/auth-context.tsx`
+- `packages/core/src/services/deals.ts`
+- `packages/db/src/sqlite-schema.ts`
+- `HOSTED_HEADLESS_OVERVIEW.md`
+
+Future agents should inspect those separately before staging. Do not use `git add -A` on this worktree unless the owner confirms those changes also belong in the next PR.
+
 ### Security and dependency posture
 
 - upgraded Better Auth to `1.6.11`
@@ -176,4 +227,3 @@ The remaining work is mostly about:
 - broader adoption assets
 
 It is no longer mainly about "does the self-host version work?"
-
