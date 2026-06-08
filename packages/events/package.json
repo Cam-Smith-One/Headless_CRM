@@ -11,12 +11,11 @@
   "scripts": {
     "build": "tsc"
   },
-  "dependencies": {},
   "optionalDependencies": {
     "ioredis": "^5.10.1"
   },
   "devDependencies": {
-    "@types/node": "^25",
+    "@types/node": "^25.9.2",
     "typescript": "^6.0.3"
   }
 }
