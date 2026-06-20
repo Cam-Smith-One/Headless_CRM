@@ -2,7 +2,21 @@ import { timingSafeEqual, createHash, createHmac } from "crypto";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { createCRM, type CRM, type CrmContext } from "@headless-crm/core";
+import {
+  createCRM,
+  type CRM,
+  type CrmContext,
+  createContactSchema,
+  updateContactSchema,
+  createCompanySchema,
+  updateCompanySchema,
+  createDealSchema,
+  updateDealSchema,
+  createCaseSchema,
+  updateCaseSchema,
+  createTagSchema,
+  attachTagSchema,
+} from "@headless-crm/core";
 import { createAuthService, type AuthService } from "@headless-crm/auth";
 import { createEventBus, type EventBus } from "@headless-crm/events";
 import { createMCPServer } from "@headless-crm/mcp-server";
@@ -502,7 +516,9 @@ export function createApp() {
 
   api.post("/contacts", requireWrite, async (c) => {
     try {
-      const record = await getCRM().contacts.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createContactSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().contacts.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -511,7 +527,9 @@ export function createApp() {
 
   api.patch("/contacts/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().contacts.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateContactSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().contacts.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -573,7 +591,9 @@ export function createApp() {
 
   api.post("/companies", requireWrite, async (c) => {
     try {
-      const record = await getCRM().companies.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createCompanySchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().companies.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -582,7 +602,9 @@ export function createApp() {
 
   api.patch("/companies/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().companies.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateCompanySchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().companies.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -636,7 +658,9 @@ export function createApp() {
 
   api.post("/deals", requireWrite, async (c) => {
     try {
-      const record = await getCRM().deals.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createDealSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().deals.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -645,7 +669,9 @@ export function createApp() {
 
   api.patch("/deals/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().deals.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateDealSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().deals.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -673,8 +699,9 @@ export function createApp() {
 
   api.post("/deals/:id/contacts", requireWrite, async (c) => {
     try {
-      const { contactId } = await c.req.json();
-      const result = await getCRM().deals.addContact(c.get("ctx"), c.req.param("id"), contactId);
+      const body = await parseBody(c, z.object({ contactId: z.string().min(1) }).strict());
+      if (body instanceof Response) return body;
+      const result = await getCRM().deals.addContact(c.get("ctx"), c.req.param("id"), body.contactId);
       return c.json(result, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -784,7 +811,9 @@ export function createApp() {
 
   api.post("/cases", requireWrite, async (c) => {
     try {
-      const record = await getCRM().cases.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createCaseSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().cases.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -793,7 +822,9 @@ export function createApp() {
 
   api.patch("/cases/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().cases.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateCaseSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().cases.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -816,11 +847,12 @@ export function createApp() {
     api.post(`/${collection}/import`, requireWrite, async (c) => {
       try {
         const ctx = c.get("ctx");
-        const body = await c.req.json();
-        const records: any[] = body.records;
-        if (!Array.isArray(records)) {
-          return c.json({ error: "body.records must be an array" }, 400);
-        }
+        const parsed = await parseBody(
+          c,
+          z.object({ records: z.array(z.record(z.string(), z.unknown())) }).strict(),
+        );
+        if (parsed instanceof Response) return parsed;
+        const records = parsed.records;
 
         const service = getCRM()[collection];
         let imported = 0;
@@ -1238,7 +1270,8 @@ export function createApp() {
 
   api.post("/tags", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const body = await parseBody(c, createTagSchema);
+      if (body instanceof Response) return body;
       const record = await getCRM().tags.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
@@ -1257,7 +1290,8 @@ export function createApp() {
 
   api.post("/tags/attach", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const body = await parseBody(c, attachTagSchema);
+      if (body instanceof Response) return body;
       const result = await getCRM().tags.attach(c.get("ctx"), body);
       return c.json(result);
     } catch (e: any) {
@@ -1267,7 +1301,8 @@ export function createApp() {
 
   api.post("/tags/detach", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const body = await parseBody(c, attachTagSchema);
+      if (body instanceof Response) return body;
       const result = await getCRM().tags.detach(c.get("ctx"), body);
       return c.json(result);
     } catch (e: any) {

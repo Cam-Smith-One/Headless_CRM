@@ -37,6 +37,12 @@ export {
   type UpdateCaseInput,
 } from "./services/cases";
 export {
+  createTagSchema,
+  attachTagSchema,
+  type CreateTagInput,
+  type AttachTagInput,
+} from "./services/tags";
+export {
   createWebhookSchema,
   updateWebhookSchema,
   type CreateWebhookInput,
