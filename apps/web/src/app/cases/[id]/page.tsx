@@ -43,34 +43,30 @@ export default function CaseDetailPage() {
   useEffect(() => {
     Promise.all([
       apiFetch<any>(`/api/cases/${id}`, { token }).catch(() => null),
-      apiFetch<any>("/api/events", { token }).then((res) => {
-        const items = Array.isArray(res) ? res : res?.data ?? [];
-        return items.filter((e: any) => e.recordId === id);
+      apiFetch<any>(`/api/events?recordId=${id}`, { token }).then((res) => {
+        return Array.isArray(res) ? res : res?.data ?? [];
       }).catch(() => []),
     ]).then(async ([c, ev]) => {
       setCas(c);
       setEvents(ev);
-      // Resolve contact name
-      if (c?.contactId) {
-        try {
-          const contact = await apiFetch<any>(`/api/contacts/${c.contactId}`, { token });
-          setContactName([contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || contact?.email || null);
-        } catch { setContactName(null); }
-      }
-      // Resolve company name
-      if (c?.companyId) {
-        try {
-          const company = await apiFetch<any>(`/api/companies/${c.companyId}`, { token });
-          setCompanyName(company?.name ?? null);
-        } catch { setCompanyName(null); }
-      }
-      // Resolve deal name
-      if (c?.dealId) {
-        try {
-          const deal = await apiFetch<any>(`/api/deals/${c.dealId}`, { token });
-          setDealName(deal?.title ?? deal?.name ?? null);
-        } catch { setDealName(null); }
-      }
+      // Resolve related record names in parallel — they're independent lookups.
+      await Promise.all([
+        c?.contactId
+          ? apiFetch<any>(`/api/contacts/${c.contactId}`, { token })
+              .then((contact) => setContactName([contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || contact?.email || null))
+              .catch(() => setContactName(null))
+          : null,
+        c?.companyId
+          ? apiFetch<any>(`/api/companies/${c.companyId}`, { token })
+              .then((company) => setCompanyName(company?.name ?? null))
+              .catch(() => setCompanyName(null))
+          : null,
+        c?.dealId
+          ? apiFetch<any>(`/api/deals/${c.dealId}`, { token })
+              .then((deal) => setDealName(deal?.title ?? deal?.name ?? null))
+              .catch(() => setDealName(null))
+          : null,
+      ]);
     }).finally(() => setLoading(false));
   }, [id, token]);
 

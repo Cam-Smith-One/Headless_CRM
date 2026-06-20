@@ -137,23 +137,27 @@ export function ContactDeals({ contactId }: { contactId: string }) {
     apiFetch<any>(`/api/deals?limit=500`, { token })
       .then(async (res) => {
         const data = Array.isArray(res) ? res : res?.data ?? [];
-        // Check each deal for this contact association
-        const associated: RelatedRecord[] = [];
-        for (const d of data) {
-          try {
-            const result = await apiFetch<any>(`/api/deals/${d.id}/contacts`, { token });
-            if (result.contactIds?.includes(contactId)) {
-              associated.push({
-                id: d.id,
-                label: d.name,
-                sublabel: d.value ? `$${Number(d.value).toLocaleString()}` : undefined,
-                badge: d.stage,
-                href: `/deals/${d.id}`,
-              });
+        // Check each deal for this contact association. Resolve the membership
+        // lookups in parallel rather than serially (one round-trip per deal).
+        const checks = await Promise.all(
+          data.map(async (d: any) => {
+            try {
+              const result = await apiFetch<any>(`/api/deals/${d.id}/contacts`, { token });
+              return result.contactIds?.includes(contactId) ? d : null;
+            } catch {
+              return null;
             }
-          } catch { /* skip */ }
-        }
-        setItems(associated);
+          })
+        );
+        setItems(
+          checks.filter(Boolean).map((d: any) => ({
+            id: d.id,
+            label: d.name,
+            sublabel: d.value ? `$${Number(d.value).toLocaleString()}` : undefined,
+            badge: d.stage,
+            href: `/deals/${d.id}`,
+          }))
+        );
       })
       .catch(() => setItems([]));
   }, [contactId, token]);
@@ -196,21 +200,22 @@ export function DealContacts({ dealId }: { dealId: string }) {
       .then(async (res) => {
         const contactIds: string[] = res.contactIds ?? [];
         if (contactIds.length === 0) { setItems([]); return; }
-        // Resolve contact details
-        const resolved: RelatedRecord[] = [];
-        for (const cid of contactIds) {
-          try {
-            const c = await apiFetch<any>(`/api/contacts/${cid}`, { token });
-            resolved.push({
-              id: c.id,
-              label: [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email || c.id,
-              sublabel: c.email,
-              href: `/contacts/${c.id}`,
-            });
-          } catch {
-            resolved.push({ id: cid, label: cid, href: `/contacts/${cid}` });
-          }
-        }
+        // Resolve contact details in parallel (one round-trip per contact otherwise).
+        const resolved = await Promise.all(
+          contactIds.map(async (cid) => {
+            try {
+              const c = await apiFetch<any>(`/api/contacts/${cid}`, { token });
+              return {
+                id: c.id,
+                label: [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email || c.id,
+                sublabel: c.email,
+                href: `/contacts/${c.id}`,
+              };
+            } catch {
+              return { id: cid, label: cid, href: `/contacts/${cid}` };
+            }
+          })
+        );
         setItems(resolved);
       })
       .catch(() => setItems([]));

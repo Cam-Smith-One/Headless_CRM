@@ -40,9 +40,8 @@ export default function ContactDetailPage() {
   useEffect(() => {
     Promise.all([
       apiFetch<any>(`/api/contacts/${id}`, { token }).catch(() => null),
-      apiFetch<any>("/api/events", { token }).then((res) => {
-        const items = Array.isArray(res) ? res : res?.data ?? [];
-        return items.filter((e: any) => e.recordId === id);
+      apiFetch<any>(`/api/events?recordId=${id}`, { token }).then((res) => {
+        return Array.isArray(res) ? res : res?.data ?? [];
       }).catch(() => []),
     ]).then(async ([c, ev]) => {
       setContact(c);

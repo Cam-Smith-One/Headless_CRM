@@ -26,9 +26,8 @@ export default function CompanyDetailPage() {
   useEffect(() => {
     Promise.all([
       apiFetch<any>(`/api/companies/${id}`, { token }).catch(() => null),
-      apiFetch<any>("/api/events", { token }).then((res) => {
-        const items = Array.isArray(res) ? res : res?.data ?? [];
-        return items.filter((e: any) => e.recordId === id);
+      apiFetch<any>(`/api/events?recordId=${id}`, { token }).then((res) => {
+        return Array.isArray(res) ? res : res?.data ?? [];
       }).catch(() => []),
     ]).then(([c, ev]) => {
       setCompany(c);
