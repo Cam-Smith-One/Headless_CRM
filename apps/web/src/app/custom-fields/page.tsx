@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
-import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { apiFetch, apiPost, apiDelete } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 const COLLECTIONS = ["contacts", "companies", "deals", "cases"] as const;

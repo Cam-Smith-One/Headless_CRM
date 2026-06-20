@@ -11,12 +11,6 @@ import { useAuth } from "@/lib/auth-context";
 import { CustomFieldsFormFields } from "@/components/custom-fields";
 
 
-function healthColor(score: number) {
-  if (score >= 80) return "text-green-400";
-  if (score >= 60) return "text-yellow-400";
-  return "text-red-400";
-}
-
 const POLL_INTERVAL = 10_000;
 
 export default function CompaniesPage() {

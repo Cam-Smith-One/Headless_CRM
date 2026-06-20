@@ -42,8 +42,6 @@ export default function AgentsPage() {
   const [successKey, setSuccessKey] = useState("");
   const [copiedField, setCopiedField] = useState("");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
   function copyToClipboard(text: string, field: string) {
     navigator.clipboard.writeText(text);
     setCopiedField(field);

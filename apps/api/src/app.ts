@@ -464,12 +464,23 @@ export function createApp() {
     }).join(",");
   }
 
-  function toCsv(records: Record<string, unknown>[]): string {
-    if (records.length === 0) return "";
-    const exclude = new Set(["embedding", "searchVector", "search_vector"]);
-    const headers = Object.keys(records[0]).filter((k) => !exclude.has(k));
-    const rows = [headers.join(","), ...records.map((r) => recordToCsvRow(r, headers))];
-    return rows.join("\n");
+  // Columns never emitted in an export (large/internal vectors).
+  const EXPORT_EXCLUDE = new Set(["embedding", "searchVector", "search_vector"]);
+  // Rows pulled per page while streaming an export. Keeps memory bounded
+  // regardless of how many rows the collection has.
+  const EXPORT_PAGE_SIZE = 500;
+
+  // Async generator that walks the whole collection one page at a time.
+  async function* exportPages(service: any, ctx: CrmContext) {
+    let offset = 0;
+    for (;;) {
+      const result = await service.query(ctx, { limit: EXPORT_PAGE_SIZE, offset });
+      const data: Record<string, unknown>[] = Array.isArray(result) ? result : result?.data ?? [];
+      if (data.length === 0) return;
+      yield data;
+      if (data.length < EXPORT_PAGE_SIZE) return;
+      offset += EXPORT_PAGE_SIZE;
+    }
   }
 
   for (const collection of ["contacts", "companies", "deals", "cases"] as const) {
@@ -478,13 +489,43 @@ export function createApp() {
         const ctx = c.get("ctx");
         const format = c.req.query("format") || "csv";
         const service = getCRM()[collection];
-        const result = await (service as any).query(ctx, { limit: 10000 });
-        const data = Array.isArray(result) ? result : result?.data ?? [];
-        if (format === "json") return c.json(data);
-        const csv = toCsv(data);
-        c.header("Content-Type", "text/csv");
-        c.header("Content-Disposition", `attachment; filename="${collection}-export.csv"`);
-        return c.body(csv || "");
+
+        // JSON export: paginate fully (no silent cap) and return one array.
+        if (format === "json") {
+          const all: Record<string, unknown>[] = [];
+          for await (const page of exportPages(service, ctx)) all.push(...page);
+          return c.json(all);
+        }
+
+        // CSV export: stream page-by-page so neither the server nor the client
+        // has to hold the whole result set in memory, and nothing is truncated.
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            try {
+              let headers: string[] | null = null;
+              for await (const page of exportPages(service, ctx)) {
+                if (!headers) {
+                  headers = Object.keys(page[0]).filter((k) => !EXPORT_EXCLUDE.has(k));
+                  controller.enqueue(encoder.encode(headers.join(",")));
+                }
+                for (const row of page) {
+                  controller.enqueue(encoder.encode("\n" + recordToCsvRow(row, headers)));
+                }
+              }
+              controller.close();
+            } catch (err) {
+              controller.error(err);
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${collection}-export.csv"`,
+          },
+        });
       } catch (e: any) {
         return errorResponse(c, e);
       }

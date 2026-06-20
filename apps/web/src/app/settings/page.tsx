@@ -9,8 +9,6 @@ import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, apiFetchNoAuth, adminPost, apiPost } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
 interface SetupStatus {
   configured: boolean;
 }

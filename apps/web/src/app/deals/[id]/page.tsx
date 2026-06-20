@@ -63,7 +63,10 @@ export default function DealDetailPage() {
     setSaving(true);
     try {
       const payload: any = { ...editForm };
+      // Coerce a provided value to a number; drop it entirely when blank so the
+      // server's `value: z.number().optional()` doesn't reject an empty string.
       if (payload.value) payload.value = Number(payload.value);
+      else delete payload.value;
       if (Object.keys(customFieldValues).length > 0) {
         payload.customFields = customFieldValues;
       }

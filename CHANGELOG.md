@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.5] — 2026-06-20 — Rebrand, performance pass, and write-route hardening
+
+New lobster brand mark plus an end-to-end review focused on responsiveness, query
+scoping, and input validation.
+
+### Added
+
+- **New logo / favicon / banner** — the lobster mark replaces the old branding across the
+  app shell, sidebar, and auth screen. Favicon now uses the Next.js `icon.png` /
+  `apple-icon.png` file convention.
+- **`/api/events` filtering** — `?recordId` and `?recordType` query params so a record's
+  timeline is fetched scoped in SQL instead of pulling the whole audit log client-side.
+- **Deal search** — `GET /api/deals?search=` (escaped LIKE on the deal name); `crm_search`
+  for deals now searches the full result set via this param.
+- **Streaming CSV export** — `/api/:collection/export` paginates server-side and streams the
+  CSV, so memory stays bounded and large exports are no longer silently truncated at 10k rows.
+
+### Changed
+
+- **List endpoints** clamp `?limit` to a 1–500 range (was unbounded — `?limit=1000000` hit
+  the query directly).
+- **Write routes** (`POST`/`PATCH` for contacts, companies, deals, cases; `/deals/:id/contacts`;
+  tags; import) validate request bodies through `.strict()` Zod schemas at the API boundary,
+  reusing the services' own schemas so they can't drift.
+- **Dashboard** fetches `/api/stats` once via a shared provider instead of three times.
+- **Pipeline email triggers** filter `dealId IS NOT NULL` in SQL, dedupe deals, and fire in
+  parallel instead of scanning every tenant activity and firing serially.
+- **Related-record panels** and the cases detail page resolve their lookups in parallel
+  (`Promise.all`) instead of one serial request per row.
+- Import and bulk-delete process records with bounded concurrency instead of serially.
+
+### Fixed
+
+- **CI lint crash** — pinned `eslint` to `^9` (ESLint 10 broke `eslint-config-next`'s
+  `react/display-name` rule).
+- **Deal edit 400** — a blank value field no longer sends `value: ""` to the number-typed schema.
+- Deduplicated an identical deals count in `/api/stats`; removed redundant dynamic imports,
+  dead code (`use-polling-fetch.ts`), unused imports, and a non-unique React `key` in the
+  agent leaderboard.
+
+### Security
+
+- Strict boundary validation (above) rejects unknown/privileged fields (`tenantId`,
+  `stateCode`, `id`, …) on write routes rather than relying solely on the service layer
+  to strip them.
+
+---
+
 ## [0.1.4] — 2026-05-17 — Bug fixes: routing, agent activation, pipeline deletion, dashboard widgets
 
 Seven bugs found and fixed via comprehensive multi-persona E2E testing (94/95 assertions passing).
