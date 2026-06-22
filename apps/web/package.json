@@ -9,13 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@base-ui/react": "^1.5.0",
+    "@base-ui/react": "^1.6.0",
     "@headless-crm/api": "*",
     "@headless-crm/auth-web": "^0.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "hono": "^4.12.25",
-    "lucide-react": "^1.18.0",
+    "hono": "^4.12.26",
+    "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "react": "19.2.7",
     "react-dom": "19.2.7",
