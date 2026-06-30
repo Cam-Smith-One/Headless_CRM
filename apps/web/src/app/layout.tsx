@@ -17,10 +17,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Headless CRM",
   description: "The open-source CRM built for AI agents",
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
+  // Favicon + apple-touch icon are provided by the Next.js file convention:
+  // src/app/icon.png and src/app/apple-icon.png.
 };
 
 export default function RootLayout({
