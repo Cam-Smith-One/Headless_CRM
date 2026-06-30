@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@headless-crm/auth-web";
 import { getDb } from "@headless-crm/db";
-import { invites, users } from "@headless-crm/db";
+import { invites } from "@headless-crm/db";
 import { eq, and, gt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { randomBytes } from "crypto";

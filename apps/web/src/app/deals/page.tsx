@@ -86,7 +86,7 @@ export default function DealsPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
   const [stageOrder, setStageOrder] = useState<string[]>(DEFAULT_STAGE_ORDER);
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGE_ORDER.map(name => ({ name, deals: [] })));
-  const [allDeals, setAllDeals] = useState<any[]>([]);
+  const [, setAllDeals] = useState<any[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [companyMap, setCompanyMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);

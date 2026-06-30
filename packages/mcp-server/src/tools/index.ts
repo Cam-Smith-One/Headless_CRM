@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
-import { agentMemories } from "@headless-crm/db";
+import { eq, and, desc } from "drizzle-orm";
+import { agentMemories, activities, attachments } from "@headless-crm/db";
 import type { CRM, CrmContext } from "@headless-crm/core";
 import type { EventBus } from "@headless-crm/events";
 
@@ -39,8 +39,6 @@ export function defineTools(deps: ToolDeps) {
           case "cases":
             return crm.cases.query(ctx, options);
           case "activities": {
-            const { desc, eq, and } = await import("drizzle-orm");
-            const { activities } = await import("@headless-crm/db");
             const limit = options.limit ?? 50;
             const offset = options.offset ?? 0;
             const data = await db
@@ -106,7 +104,8 @@ export function defineTools(deps: ToolDeps) {
                   ctx, col, input.query, input.limit
                 );
               } else if (col === "deals") {
-                const r = await crm.deals.query(ctx, { limit: input.limit });
+                // Deals have no embeddings index; fall back to a name search.
+                const r = await crm.deals.query(ctx, { search: input.query, limit: input.limit });
                 results.deals = r.data;
               } else if (col === "cases") {
                 const r = await crm.cases.query(ctx, { search: input.query, limit: input.limit });
@@ -135,11 +134,13 @@ export function defineTools(deps: ToolDeps) {
                   break;
                 }
                 case "deals": {
-                  const r = await crm.deals.query(ctx, { limit: input.limit });
-                  const q = input.query.toLowerCase();
-                  results.deals = r.data.filter((d: any) =>
-                    d.name?.toLowerCase().includes(q)
-                  );
+                  // Push the name match into the query so it searches the full
+                  // result set, not just the first page returned to the client.
+                  const r = await crm.deals.query(ctx, {
+                    search: input.query,
+                    limit: input.limit,
+                  });
+                  results.deals = r.data;
                   break;
                 }
                 case "cases": {
@@ -732,7 +733,6 @@ export function defineTools(deps: ToolDeps) {
       }),
       annotations: { readOnly: false },
       async execute(input: any) {
-        const { attachments } = await import("@headless-crm/db");
         const id = crypto.randomUUID();
         const buffer = Buffer.from(input.base64Content, "base64");
 

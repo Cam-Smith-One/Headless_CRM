@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiFetch } from "@/lib/api";
@@ -79,7 +79,14 @@ function ActivityIcon({ type }: { type: string }) {
   );
 }
 
-function useStats() {
+// Shared stats — fetched once per dashboard mount and consumed by every widget
+// that needs it, instead of each widget issuing its own /api/stats request.
+const StatsContext = createContext<{ stats: Stats | null; loading: boolean }>({
+  stats: null,
+  loading: true,
+});
+
+export function StatsProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,7 +104,11 @@ function useStats() {
       cancelled = true;
     };
   }, [token]);
-  return { stats, loading };
+  return <StatsContext.Provider value={{ stats, loading }}>{children}</StatsContext.Provider>;
+}
+
+function useStats() {
+  return useContext(StatsContext);
 }
 
 // ── Widget registry ─────────────────────────────────────────────────────────
@@ -258,6 +269,7 @@ export function AgentLeaderboardWidget() {
               .filter((a: any) => a.status === "active")
               .slice(0, 4)
               .map((a: any) => ({
+                id: a.id,
                 name: a.name,
                 type: a.type ?? "autonomous",
                 actions: a.actionsTotal ?? a.actions24h ?? 0,
@@ -289,7 +301,7 @@ export function AgentLeaderboardWidget() {
           </div>
         )}
         {topAgents.map((agent) => (
-          <div key={agent.name} className="px-4 py-3">
+          <div key={agent.id ?? agent.name} className="px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-[10px] font-mono text-muted-foreground">

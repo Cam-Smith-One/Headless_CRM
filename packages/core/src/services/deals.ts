@@ -1,5 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
-import { deals, dealContacts, contacts, pipelines } from "@headless-crm/db";
+import { deals, dealContacts, contacts, pipelines, ilikeCompat } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { CrmContext, EventEmitter, PaginatedResult } from "../types";
@@ -162,17 +162,22 @@ export function createDealsService(
 
     async query(
       ctx: CrmContext,
-      options: { limit?: number; offset?: number; stage?: string; pipelineId?: string; companyId?: string }
+      options: { limit?: number; offset?: number; stage?: string; pipelineId?: string; companyId?: string; search?: string }
     ): Promise<PaginatedResult<typeof deals.$inferSelect>> {
       const limit = options.limit ?? 50;
       const offset = options.offset ?? 0;
+
+      const escapedSearch = options.search
+        ? options.search.replace(/%/g, '\\%').replace(/_/g, '\\_')
+        : undefined;
 
       const whereCondition = and(
         eq(deals.tenantId, ctx.tenantId),
         eq(deals.stateCode, "active"),
         options.stage ? eq(deals.stage, options.stage) : undefined,
         options.pipelineId ? eq(deals.pipelineId, options.pipelineId) : undefined,
-        options.companyId ? eq(deals.companyId, options.companyId) : undefined
+        options.companyId ? eq(deals.companyId, options.companyId) : undefined,
+        escapedSearch ? ilikeCompat(deals.name, `%${escapedSearch}%`) : undefined
       );
 
       const data = await db

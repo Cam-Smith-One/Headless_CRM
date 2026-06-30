@@ -13,6 +13,7 @@ import {
   WIDGET_REGISTRY,
   getWidgetDef,
   WidgetRenderer,
+  StatsProvider,
 } from "@/components/dashboard-widgets";
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -200,6 +201,7 @@ export default function Dashboard() {
       </div>
 
       {/* Widget grid */}
+      <StatsProvider>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {layout.map((item, idx) => {
           const def = getWidgetDef(item.id);
@@ -291,6 +293,7 @@ export default function Dashboard() {
           );
         })}
       </div>
+      </StatsProvider>
 
       {layout.length === 0 && (
         <div className="text-center py-16 text-sm text-muted-foreground">

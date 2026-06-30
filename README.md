@@ -165,6 +165,7 @@ Works with Claude Code, Cursor, Codex, OpenClaw, and any agent that supports Jou
 ### Security
 - **MCP Role Enforcement** — every tool gated by `ctx.role`; readers can't write, operators can't delete, only developers modify schema
 - **Tenant Isolation** — every query scoped by `tenantId`; FK references validated against caller's tenant before mutation
+- **Strict Input Validation** — write routes parse request bodies through `.strict()` Zod schemas at the API boundary, rejecting unknown/privileged fields (`tenantId`, `stateCode`, …) instead of silently dropping them
 - **Error Sanitization** — all 73 catch blocks route through a central sanitizer — no DB column names leak to callers
 - **Rate Limiting** — Redis-backed (in-memory fallback), 100/min authenticated, 20/min unauthenticated
 - **Resend Webhook Signing** — HMAC-signed; unsigned requests rejected in production
@@ -330,7 +331,7 @@ All routes under `/api` require a Bearer token (except health checks). Full inte
 | `POST` | `/api/companies/:id/enrich` | Apply enrichment payload |
 | `DELETE` | `/api/companies/bulk` | Bulk delete up to 500 (developer) |
 | **Deals** | | |
-| `GET/POST` | `/api/deals` | List / Create (supports `stage`, `pipelineId` filters) |
+| `GET/POST` | `/api/deals` | List / Create (supports `stage`, `pipelineId`, `companyId`, `search` filters) |
 | `GET/PATCH/DELETE` | `/api/deals/:id` | Get / Update / Delete |
 | `GET/POST/DELETE` | `/api/deals/:id/contacts` | Deal-contact associations |
 | `GET` | `/api/deals/:id/stage-history` | Full stage-change history from audit trail |
@@ -358,7 +359,7 @@ All routes under `/api` require a Bearer token (except health checks). Full inte
 | `GET/POST` | `/api/saved-searches` | List / Create saved filter set |
 | `GET/PATCH/DELETE` | `/api/saved-searches/:id` | Get / Update / Delete |
 | **Events** | | |
-| `GET` | `/api/events` | Audit trail (auditor or developer) |
+| `GET` | `/api/events` | Audit trail (auditor or developer); filter with `?recordId` / `?recordType` |
 | `GET` | `/api/agents/:id/logs` | Per-agent action log (auditor or developer) |
 | **Agents** | | |
 | `GET/POST` | `/api/agents` | List / Provision |
@@ -394,8 +395,14 @@ All routes under `/api` require a Bearer token (except health checks). Full inte
 | **MCP** | | |
 | `ALL` | `/mcp` | MCP Streamable HTTP transport |
 | `GET` | `/.well-known/mcp.json` | MCP discovery document |
+| **Export** | | |
+| `GET` | `/api/:collection/export` | Stream all rows as CSV (or `?format=json`) for `contacts`/`companies`/`deals`/`cases` |
 | **Docs** | | |
 | `GET` | `/api/docs` | OpenAPI 3.1 Scalar UI |
+
+**List parameters:** list endpoints accept `?limit` (1–500, default 20) and `?offset` for
+pagination. Requests above the cap are clamped rather than rejected. Exports are **not**
+capped — they paginate server-side and stream, so memory stays bounded for any collection size.
 
 ---
 

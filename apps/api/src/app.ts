@@ -2,7 +2,21 @@ import { timingSafeEqual, createHash, createHmac } from "crypto";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { createCRM, type CRM, type CrmContext } from "@headless-crm/core";
+import {
+  createCRM,
+  type CRM,
+  type CrmContext,
+  createContactSchema,
+  updateContactSchema,
+  createCompanySchema,
+  updateCompanySchema,
+  createDealSchema,
+  updateDealSchema,
+  createCaseSchema,
+  updateCaseSchema,
+  createTagSchema,
+  attachTagSchema,
+} from "@headless-crm/core";
 import { createAuthService, type AuthService } from "@headless-crm/auth";
 import { createEventBus, type EventBus } from "@headless-crm/events";
 import { createMCPServer } from "@headless-crm/mcp-server";
@@ -76,6 +90,42 @@ async function parseBody<T extends z.ZodTypeAny>(c: any, schema: T): Promise<z.i
   }
   return result.data;
 }
+
+/** Hard ceiling on how many rows any list endpoint will return in one page. */
+const MAX_LIST_LIMIT = 500;
+
+/**
+ * clampLimit — parse a `?limit=` query value into a safe page size.
+ * Falls back to `fallback` for missing/invalid/non-positive input and caps the
+ * result at MAX_LIST_LIMIT so a caller can't request an unbounded scan.
+ */
+function clampLimit(raw: string | undefined, fallback = 20): number {
+  const n = parseInt(raw || "", 10);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(n, MAX_LIST_LIMIT);
+}
+
+/**
+ * runBatched — run `fn` over every item with bounded concurrency, processing
+ * `size` items in parallel per batch. Results are returned in input order, so
+ * callers can correlate a settled result back to `items[index]`. Used by the
+ * import / bulk endpoints to avoid issuing hundreds of serial DB round-trips.
+ */
+async function runBatched<T, R>(
+  items: T[],
+  size: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, i + size);
+    results.push(...(await Promise.allSettled(chunk.map((it, j) => fn(it, i + j)))));
+  }
+  return results;
+}
+
+/** Max records processed in parallel per batch by import / bulk endpoints. */
+const BULK_BATCH_SIZE = 25;
 
 /**
  * errorResponse — map a thrown error to a sanitized JSON response.
@@ -414,12 +464,23 @@ export function createApp() {
     }).join(",");
   }
 
-  function toCsv(records: Record<string, unknown>[]): string {
-    if (records.length === 0) return "";
-    const exclude = new Set(["embedding", "searchVector", "search_vector"]);
-    const headers = Object.keys(records[0]).filter((k) => !exclude.has(k));
-    const rows = [headers.join(","), ...records.map((r) => recordToCsvRow(r, headers))];
-    return rows.join("\n");
+  // Columns never emitted in an export (large/internal vectors).
+  const EXPORT_EXCLUDE = new Set(["embedding", "searchVector", "search_vector"]);
+  // Rows pulled per page while streaming an export. Keeps memory bounded
+  // regardless of how many rows the collection has.
+  const EXPORT_PAGE_SIZE = 500;
+
+  // Async generator that walks the whole collection one page at a time.
+  async function* exportPages(service: any, ctx: CrmContext) {
+    let offset = 0;
+    for (;;) {
+      const result = await service.query(ctx, { limit: EXPORT_PAGE_SIZE, offset });
+      const data: Record<string, unknown>[] = Array.isArray(result) ? result : result?.data ?? [];
+      if (data.length === 0) return;
+      yield data;
+      if (data.length < EXPORT_PAGE_SIZE) return;
+      offset += EXPORT_PAGE_SIZE;
+    }
   }
 
   for (const collection of ["contacts", "companies", "deals", "cases"] as const) {
@@ -428,13 +489,43 @@ export function createApp() {
         const ctx = c.get("ctx");
         const format = c.req.query("format") || "csv";
         const service = getCRM()[collection];
-        const result = await (service as any).query(ctx, { limit: 10000 });
-        const data = Array.isArray(result) ? result : result?.data ?? [];
-        if (format === "json") return c.json(data);
-        const csv = toCsv(data);
-        c.header("Content-Type", "text/csv");
-        c.header("Content-Disposition", `attachment; filename="${collection}-export.csv"`);
-        return c.body(csv || "");
+
+        // JSON export: paginate fully (no silent cap) and return one array.
+        if (format === "json") {
+          const all: Record<string, unknown>[] = [];
+          for await (const page of exportPages(service, ctx)) all.push(...page);
+          return c.json(all);
+        }
+
+        // CSV export: stream page-by-page so neither the server nor the client
+        // has to hold the whole result set in memory, and nothing is truncated.
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            try {
+              let headers: string[] | null = null;
+              for await (const page of exportPages(service, ctx)) {
+                if (!headers) {
+                  headers = Object.keys(page[0]).filter((k) => !EXPORT_EXCLUDE.has(k));
+                  controller.enqueue(encoder.encode(headers.join(",")));
+                }
+                for (const row of page) {
+                  controller.enqueue(encoder.encode("\n" + recordToCsvRow(row, headers)));
+                }
+              }
+              controller.close();
+            } catch (err) {
+              controller.error(err);
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${collection}-export.csv"`,
+          },
+        });
       } catch (e: any) {
         return errorResponse(c, e);
       }
@@ -445,7 +536,7 @@ export function createApp() {
   api.get("/contacts", async (c) => {
     try {
       const ctx = c.get("ctx");
-      const limit = parseInt(c.req.query("limit") || "") || 20;
+      const limit = clampLimit(c.req.query("limit"), 20);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const search = c.req.query("search") || undefined;
       const companyId = c.req.query("companyId") || undefined;
@@ -466,7 +557,9 @@ export function createApp() {
 
   api.post("/contacts", requireWrite, async (c) => {
     try {
-      const record = await getCRM().contacts.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createContactSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().contacts.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -475,7 +568,9 @@ export function createApp() {
 
   api.patch("/contacts/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().contacts.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateContactSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().contacts.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -517,7 +612,7 @@ export function createApp() {
   api.get("/companies", async (c) => {
     try {
       const ctx = c.get("ctx");
-      const limit = parseInt(c.req.query("limit") || "") || 20;
+      const limit = clampLimit(c.req.query("limit"), 20);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const search = c.req.query("search") || undefined;
       return c.json(await getCRM().companies.query(ctx, { limit, offset, search }));
@@ -537,7 +632,9 @@ export function createApp() {
 
   api.post("/companies", requireWrite, async (c) => {
     try {
-      const record = await getCRM().companies.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createCompanySchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().companies.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -546,7 +643,9 @@ export function createApp() {
 
   api.patch("/companies/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().companies.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateCompanySchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().companies.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -577,12 +676,13 @@ export function createApp() {
   api.get("/deals", async (c) => {
     try {
       const ctx = c.get("ctx");
-      const limit = parseInt(c.req.query("limit") || "") || 20;
+      const limit = clampLimit(c.req.query("limit"), 20);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const stage = c.req.query("stage") || undefined;
       const pipelineId = c.req.query("pipelineId") || undefined;
       const companyId = c.req.query("companyId") || undefined;
-      return c.json(await getCRM().deals.query(ctx, { limit, offset, stage, pipelineId, companyId }));
+      const search = c.req.query("search") || undefined;
+      return c.json(await getCRM().deals.query(ctx, { limit, offset, stage, pipelineId, companyId, search }));
     } catch (e: any) {
       return errorResponse(c, e);
     }
@@ -599,7 +699,9 @@ export function createApp() {
 
   api.post("/deals", requireWrite, async (c) => {
     try {
-      const record = await getCRM().deals.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createDealSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().deals.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -608,7 +710,9 @@ export function createApp() {
 
   api.patch("/deals/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().deals.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateDealSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().deals.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -636,8 +740,9 @@ export function createApp() {
 
   api.post("/deals/:id/contacts", requireWrite, async (c) => {
     try {
-      const { contactId } = await c.req.json();
-      const result = await getCRM().deals.addContact(c.get("ctx"), c.req.param("id"), contactId);
+      const body = await parseBody(c, z.object({ contactId: z.string().min(1) }).strict());
+      if (body instanceof Response) return body;
+      const result = await getCRM().deals.addContact(c.get("ctx"), c.req.param("id"), body.contactId);
       return c.json(result, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -723,7 +828,7 @@ export function createApp() {
   api.get("/cases", async (c) => {
     try {
       const ctx = c.get("ctx");
-      const limit = parseInt(c.req.query("limit") || "") || 20;
+      const limit = clampLimit(c.req.query("limit"), 20);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const search = c.req.query("search") || undefined;
       const status = c.req.query("status") || undefined;
@@ -747,7 +852,9 @@ export function createApp() {
 
   api.post("/cases", requireWrite, async (c) => {
     try {
-      const record = await getCRM().cases.create(c.get("ctx"), await c.req.json());
+      const body = await parseBody(c, createCaseSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().cases.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -756,7 +863,9 @@ export function createApp() {
 
   api.patch("/cases/:id", requireWrite, async (c) => {
     try {
-      const record = await getCRM().cases.update(c.get("ctx"), c.req.param("id"), await c.req.json());
+      const body = await parseBody(c, updateCaseSchema.strict());
+      if (body instanceof Response) return body;
+      const record = await getCRM().cases.update(c.get("ctx"), c.req.param("id"), body);
       return c.json(record);
     } catch (e: any) {
       return errorResponse(c, e);
@@ -779,37 +888,41 @@ export function createApp() {
     api.post(`/${collection}/import`, requireWrite, async (c) => {
       try {
         const ctx = c.get("ctx");
-        const body = await c.req.json();
-        const records: any[] = body.records;
-        if (!Array.isArray(records)) {
-          return c.json({ error: "body.records must be an array" }, 400);
-        }
+        const parsed = await parseBody(
+          c,
+          z.object({ records: z.array(z.record(z.string(), z.unknown())) }).strict(),
+        );
+        if (parsed instanceof Response) return parsed;
+        const records = parsed.records;
 
         const service = getCRM()[collection];
         let imported = 0;
         let failed = 0;
         const errors: { index: number; error: string }[] = [];
 
-        for (let i = 0; i < records.length; i++) {
-          try {
-            let data = { ...records[i] };
-            if (collection === "contacts") {
-              const nameField = data.fullName || data.name;
-              if (nameField && !data.firstName) {
-                const parts = String(nameField).trim().split(/\s+/);
-                data.firstName = parts[0];
-                data.lastName = parts.slice(1).join(" ") || undefined;
-                delete data.fullName;
-                delete data.name;
-              }
+        const settled = await runBatched(records, BULK_BATCH_SIZE, async (record) => {
+          const data = { ...record };
+          if (collection === "contacts") {
+            const nameField = data.fullName || data.name;
+            if (nameField && !data.firstName) {
+              const parts = String(nameField).trim().split(/\s+/);
+              data.firstName = parts[0];
+              data.lastName = parts.slice(1).join(" ") || undefined;
+              delete data.fullName;
+              delete data.name;
             }
-            await (service as any).create(ctx, data);
-            imported++;
-          } catch (err: any) {
-            failed++;
-            errors.push({ index: i, error: err.message ?? String(err) });
           }
-        }
+          await (service as any).create(ctx, data);
+        });
+
+        settled.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            imported++;
+          } else {
+            failed++;
+            errors.push({ index: i, error: r.reason?.message ?? String(r.reason) });
+          }
+        });
 
         return c.json({ imported, failed, errors });
       } catch (e: any) {
@@ -829,15 +942,17 @@ export function createApp() {
         let deleted = 0;
         let failed = 0;
         const errors: { id: string; error: string }[] = [];
-        for (const id of body.ids) {
-          try {
-            await (service as any).delete(ctx, id);
+        const settled = await runBatched(body.ids, BULK_BATCH_SIZE, (id) =>
+          (service as any).delete(ctx, id),
+        );
+        settled.forEach((r, i) => {
+          if (r.status === "fulfilled") {
             deleted++;
-          } catch (err: any) {
+          } else {
             failed++;
-            errors.push({ id, error: err.message ?? String(err) });
+            errors.push({ id: body.ids[i], error: r.reason?.message ?? String(r.reason) });
           }
-        }
+        });
         return c.json({ deleted, failed, errors });
       } catch (e: any) {
         return errorResponse(c, e);
@@ -929,7 +1044,7 @@ export function createApp() {
   // Activities
   api.get("/activities", async (c) => {
     try {
-      const limit = parseInt(c.req.query("limit") || "") || 50;
+      const limit = clampLimit(c.req.query("limit"), 50);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const type = c.req.query("type") ?? undefined;
       const result = await getCRM().activities.query(c.get("ctx"), { limit, offset, type });
@@ -963,10 +1078,21 @@ export function createApp() {
     try {
       const limit = Math.min(parseInt(c.req.query("limit") || "") || 50, 200);
       const offset = parseInt(c.req.query("offset") || "") || 0;
+      // Optional filters so callers (e.g. a record's activity timeline) can
+      // scope the query in SQL instead of fetching the whole audit log and
+      // filtering client-side.
+      const recordId = c.req.query("recordId") || undefined;
+      const recordType = c.req.query("recordType") || undefined;
       const records = await getDb()
         .select()
         .from(crmEvents)
-        .where(eq(crmEvents.tenantId, c.get("ctx").tenantId))
+        .where(
+          and(
+            eq(crmEvents.tenantId, c.get("ctx").tenantId),
+            recordId ? eq(crmEvents.recordId, recordId) : undefined,
+            recordType ? eq(crmEvents.recordType, recordType) : undefined,
+          ),
+        )
         .orderBy(desc(crmEvents.createdAt))
         .limit(limit)
         .offset(offset);
@@ -1088,7 +1214,6 @@ export function createApp() {
       [{ contactsThisWeek }],
       [{ companiesTotal }],
       [{ companiesThisWeek }],
-      [{ dealsTotal }],
       [{ dealsActive }],
       [{ pipelineValue }],
       [{ casesTotal }],
@@ -1102,7 +1227,6 @@ export function createApp() {
       getDb().select({ contactsThisWeek: count() }).from(contacts).where(and(eq(contacts.tenantId, tenantId), eq(contacts.stateCode, "active"), gte(contacts.createdAt, sevenDaysAgo))),
       getDb().select({ companiesTotal: count() }).from(companies).where(and(eq(companies.tenantId, tenantId), eq(companies.stateCode, "active"))),
       getDb().select({ companiesThisWeek: count() }).from(companies).where(and(eq(companies.tenantId, tenantId), eq(companies.stateCode, "active"), gte(companies.createdAt, sevenDaysAgo))),
-      getDb().select({ dealsTotal: count() }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
       getDb().select({ dealsActive: count() }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
       getDb().select({ pipelineValue: sql<string>`coalesce(sum(cast(${deals.value} as numeric)), 0)` }).from(deals).where(and(eq(deals.tenantId, tenantId), eq(deals.stateCode, "active"))),
       getDb().select({ casesTotal: count() }).from(cases).where(eq(cases.tenantId, tenantId)),
@@ -1116,7 +1240,8 @@ export function createApp() {
     return c.json({
       contacts: { total: contactsTotal, thisWeek: contactsThisWeek },
       companies: { total: companiesTotal, thisWeek: companiesThisWeek },
-      deals: { total: dealsTotal, active: dealsActive, pipelineValue: Number(pipelineValue) },
+      // `total` and `active` are the same active-deal count; reuse one query.
+      deals: { total: dealsActive, active: dealsActive, pipelineValue: Number(pipelineValue) },
       cases: { total: casesTotal, open: casesOpen },
       agents: { total: agentsTotal, active: agentsActive },
       events: { total: eventsTotal, today: eventsToday },
@@ -1186,7 +1311,8 @@ export function createApp() {
 
   api.post("/tags", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const body = await parseBody(c, createTagSchema);
+      if (body instanceof Response) return body;
       const record = await getCRM().tags.create(c.get("ctx"), body);
       return c.json(record, 201);
     } catch (e: any) {
@@ -1205,7 +1331,8 @@ export function createApp() {
 
   api.post("/tags/attach", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const body = await parseBody(c, attachTagSchema);
+      if (body instanceof Response) return body;
       const result = await getCRM().tags.attach(c.get("ctx"), body);
       return c.json(result);
     } catch (e: any) {
@@ -1215,7 +1342,8 @@ export function createApp() {
 
   api.post("/tags/detach", requireWrite, async (c) => {
     try {
-      const body = await c.req.json();
+      const body = await parseBody(c, attachTagSchema);
+      if (body instanceof Response) return body;
       const result = await getCRM().tags.detach(c.get("ctx"), body);
       return c.json(result);
     } catch (e: any) {
@@ -1284,7 +1412,7 @@ export function createApp() {
 
   api.get("/webhooks/:id/deliveries", async (c) => {
     try {
-      const limit = parseInt(c.req.query("limit") || "") || 20;
+      const limit = clampLimit(c.req.query("limit"), 20);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       const status = c.req.query("status") || undefined;
       const records = await getCRM().webhooks.getDeliveries(c.get("ctx"), c.req.param("id"), {
@@ -1414,7 +1542,7 @@ export function createApp() {
       const ctx = c.get("ctx");
       const q = c.req.query("q");
       const collection = c.req.query("collection") as "contacts" | "companies" | undefined;
-      const limit = parseInt(c.req.query("limit") || "") || 10;
+      const limit = clampLimit(c.req.query("limit"), 10);
 
       if (!q) return c.json({ error: "q parameter is required" }, 400);
       if (!collection || !["contacts", "companies"].includes(collection)) {
@@ -1669,7 +1797,7 @@ export function createApp() {
     try {
       const ctx = c.get("ctx");
       const unreadOnly = c.req.query("unreadOnly") === "true";
-      const limit = parseInt(c.req.query("limit") || "") || 50;
+      const limit = clampLimit(c.req.query("limit"), 50);
       const offset = parseInt(c.req.query("offset") || "") || 0;
       return c.json(await getCRM().notifications.list(ctx, { unreadOnly, limit, offset }));
     } catch (e: any) {
@@ -1854,7 +1982,7 @@ export function createApp() {
     // activity's metadata. Index this at the SQL layer rather than scanning
     // the full table — `metadata->>'resendId' = $1` uses the JSONB operator
     // and would benefit from a functional index in production.
-    const { sql, eq, and, isNotNull } = await import("drizzle-orm");
+    // (`sql`, `and`, `isNotNull` are statically imported at the top of the file.)
     const matched = await getDb()
       .select()
       .from(schema.activities)

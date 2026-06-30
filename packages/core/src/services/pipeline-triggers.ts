@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { pipelineTriggers, activities, deals, pipelines } from "@headless-crm/db";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -226,27 +226,36 @@ export function createPipelineTriggersService(db: any, events: EventEmitter) {
       triggerEvent: string,
       resendId: string
     ): Promise<Array<{ dealId: string; fromStage: string; toStage: string }>> {
-      // Find activities referencing this resendId
-      const allActivities = await db
+      // Find deal-linked activities referencing this resendId. We scope to the
+      // tenant and to rows that actually carry a dealId in SQL; the resendId
+      // itself lives inside the JSON `metadata` column, which is filtered in JS
+      // to stay portable across the Postgres and SQLite backends.
+      const candidateActivities = await db
         .select()
         .from(activities)
-        .where(eq(activities.tenantId, ctx.tenantId));
+        .where(and(eq(activities.tenantId, ctx.tenantId), isNotNull(activities.dealId)));
 
-      const matched = allActivities.filter(
-        (a: { metadata: unknown; dealId: string | null }) =>
-          a.dealId &&
-          a.metadata &&
-          typeof a.metadata === "object" &&
-          (a.metadata as Record<string, unknown>).resendId === resendId
+      // Dedupe by dealId — multiple activities can reference the same deal, and
+      // firing the same deal concurrently would race on the stage update.
+      const dealIds = [
+        ...new Set(
+          candidateActivities
+            .filter(
+              (a: { metadata: unknown; dealId: string | null }) =>
+                a.metadata &&
+                typeof a.metadata === "object" &&
+                (a.metadata as Record<string, unknown>).resendId === resendId
+            )
+            .map((a: { dealId: string | null }) => a.dealId as string)
+        ),
+      ] as string[];
+
+      const fired = await Promise.all(
+        dealIds.map((dealId) => this.fireForDeal(ctx, dealId, triggerEvent))
       );
-
-      const results: Array<{ dealId: string; fromStage: string; toStage: string }> = [];
-      for (const activity of matched) {
-        if (!activity.dealId) continue;
-        const result = await this.fireForDeal(ctx, activity.dealId, triggerEvent);
-        if (result) results.push(result);
-      }
-      return results;
+      return fired.filter(
+        (r): r is { dealId: string; fromStage: string; toStage: string } => r !== null
+      );
     },
   };
 }

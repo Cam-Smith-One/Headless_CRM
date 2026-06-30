@@ -10,7 +10,7 @@ export function getOpenAPISpec() {
     openapi: "3.1.0",
     info: {
       title: "Headless CRM API",
-      version: "0.1.4",
+      version: "0.1.5",
       description:
         "Agent-first headless CRM with MCP-native interface for AI agents. Provides full CRUD for contacts, companies, deals, cases, pipelines, activities, tags, pipeline triggers, approvals, attachments, notifications, webhooks, custom fields, emails, events, agents, and saved searches.",
       license: { name: "AGPL-3.0", url: "https://www.gnu.org/licenses/agpl-3.0.html" },

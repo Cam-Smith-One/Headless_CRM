@@ -28,9 +28,8 @@ export default function DealDetailPage() {
   useEffect(() => {
     Promise.all([
       apiFetch<any>(`/api/deals/${id}`, { token }).catch(() => null),
-      apiFetch<any>("/api/events", { token }).then((res) => {
-        const items = Array.isArray(res) ? res : res?.data ?? [];
-        return items.filter((e: any) => e.recordId === id);
+      apiFetch<any>(`/api/events?recordId=${id}`, { token }).then((res) => {
+        return Array.isArray(res) ? res : res?.data ?? [];
       }).catch(() => []),
     ]).then(async ([d, ev]) => {
       setDeal(d);
@@ -64,7 +63,10 @@ export default function DealDetailPage() {
     setSaving(true);
     try {
       const payload: any = { ...editForm };
+      // Coerce a provided value to a number; drop it entirely when blank so the
+      // server's `value: z.number().optional()` doesn't reject an empty string.
       if (payload.value) payload.value = Number(payload.value);
+      else delete payload.value;
       if (Object.keys(customFieldValues).length > 0) {
         payload.customFields = customFieldValues;
       }
