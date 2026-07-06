@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@headless-crm/api": "*",
-    "@hono/node-server": "^2.0.4"
+    "@hono/node-server": "^2.0.8"
   },
   "devDependencies": {
     "tsx": "^4.22.4",
