@@ -21,9 +21,9 @@
     "start": "npx tsx packages/cli/src/index.ts"
   },
   "devDependencies": {
-    "eslint": "^9.39.0",
-    "turbo": "^2.9.18",
-    "typescript": "^6.0.3"
+    "eslint": "^10.7.0",
+    "turbo": "^2.10.4",
+    "typescript": "^7.0.2"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "4.3.1",
