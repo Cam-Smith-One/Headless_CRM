@@ -24,10 +24,10 @@
     "drizzle-orm": "^0.45.2",
     "@neondatabase/serverless": "^1.1.0",
     "postgres": "^3.4.9",
-    "nanoid": "^5.1.11"
+    "nanoid": "^6.0.0"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^12.10.1"
+    "better-sqlite3": "^13.0.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
