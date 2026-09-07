@@ -23,8 +23,8 @@
     "@headless-crm/core": "*",
     "@headless-crm/db": "*",
     "@headless-crm/events": "*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.4.3"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
