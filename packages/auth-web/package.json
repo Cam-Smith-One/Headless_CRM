@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@headless-crm/db": "*",
-    "better-auth": "^1.6.18",
-    "drizzle-orm": "^0.45.2"
+    "better-auth": "^1.7.6",
+    "drizzle-orm": "^0.45.3"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
